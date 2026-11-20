@@ -1,0 +1,2311 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Jadual Waktu – Jabatan Pelancongan & Hospitaliti | PKK</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --nav-bg: #0f2744;
+    --nav-hover: #1a3a6b;
+    --nav-active: #1e4d9b;
+    --nav-text: #c8d8f0;
+    --nav-title: #ffffff;
+    --accent-blue: #1e6de5;
+    --accent-green: #17a35a;
+    --accent-orange: #e97620;
+    --accent-red: #d93025;
+    --accent-purple: #7c5cd8;
+    --bg-main: #f4f6fb;
+    --bg-white: #ffffff;
+    --bg-surface: #f0f4fa;
+    --border: #dde3ef;
+    --text-dark: #1a2540;
+    --text-mid: #3d4f6e;
+    --text-muted: #7585a3;
+    --shadow: 0 2px 8px rgba(30,60,120,0.09);
+    --radius: 10px;
+    --nav-width: 260px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, Arial, sans-serif; background: var(--bg-main); color: var(--text-dark); font-size: 14px; display: flex; min-height: 100vh; }
+
+  /* ===== SIDEBAR ===== */
+  #sidebar {
+    width: var(--nav-width); background: var(--nav-bg); position: fixed; top: 0; left: 0; height: 100vh;
+    overflow-y: auto; z-index: 1000; display: flex; flex-direction: column; transition: transform 0.3s;
+  }
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-thumb { background: #2a4a7f; border-radius: 2px; }
+  .sidebar-header { padding: 18px 16px 14px; border-bottom: 1px solid #1a3a6b; }
+  .sidebar-logo { display: flex; align-items: center; gap: 10px; }
+  .sidebar-logo-icon { width: 36px; height: 36px; background: var(--accent-blue); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; flex-shrink: 0; }
+  .sidebar-logo-text { font-size: 11px; color: var(--nav-text); line-height: 1.4; }
+  .sidebar-logo-text strong { display: block; font-size: 13px; color: #fff; }
+  .nav-section-label { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: #4a6a9a; text-transform: uppercase; padding: 14px 16px 4px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; cursor: pointer; color: var(--nav-text); font-size: 13px; border-radius: 0; transition: background 0.15s, color 0.15s; position: relative; }
+  .nav-item:hover { background: var(--nav-hover); color: #fff; }
+  .nav-item.active { background: var(--nav-active); color: #fff; border-left: 3px solid #5ba3f5; }
+  .nav-item .nav-icon { width: 20px; text-align: center; font-size: 15px; flex-shrink: 0; }
+  .nav-item .nav-badge { margin-left: auto; background: var(--accent-red); color: #fff; border-radius: 10px; font-size: 10px; padding: 1px 7px; font-weight: 700; }
+  .sidebar-footer { padding: 12px 16px; border-top: 1px solid #1a3a6b; margin-top: auto; }
+  .session-pill { background: var(--nav-active); color: #c8d8f0; border-radius: 20px; padding: 5px 10px; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+  .session-pill span { font-size: 10px; }
+  .session-pill strong { color: #fff; font-size: 12px; }
+
+  /* ===== MAIN CONTENT ===== */
+  #main { margin-left: var(--nav-width); flex: 1; min-height: 100vh; }
+  .topbar { background: var(--bg-white); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .topbar-title { font-size: 16px; font-weight: 700; color: var(--text-dark); }
+  .topbar-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .session-select-top { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--text-dark); cursor: pointer; font-weight: 600; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: background 0.15s; }
+  .btn-primary { background: var(--accent-blue); color: #fff; }
+  .btn-primary:hover { background: #1558c8; }
+  .btn-success { background: var(--accent-green); color: #fff; }
+  .btn-success:hover { background: #128a4a; }
+  .btn-warning { background: var(--accent-orange); color: #fff; }
+  .btn-danger { background: var(--accent-red); color: #fff; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-mid); }
+  .btn-outline:hover { background: var(--bg-surface); }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+  .page { display: none; padding: 20px 24px; }
+  .page.active { display: block; }
+
+  /* ===== CARDS ===== */
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .card { background: var(--bg-white); border-radius: var(--radius); padding: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .card-sm { background: var(--bg-white); border-radius: var(--radius); padding: 14px 16px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .summary-card { background: var(--bg-white); border-radius: var(--radius); padding: 16px; border: 1px solid var(--border); border-left: 4px solid var(--accent-blue); box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px; }
+  .summary-card.green { border-left-color: var(--accent-green); }
+  .summary-card.orange { border-left-color: var(--accent-orange); }
+  .summary-card.red { border-left-color: var(--accent-red); }
+  .summary-card.purple { border-left-color: var(--accent-purple); }
+  .summary-card .s-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .summary-card .s-val { font-size: 28px; font-weight: 800; color: var(--text-dark); line-height: 1.1; }
+  .summary-card .s-sub { font-size: 11px; color: var(--text-muted); }
+  .summary-card .s-icon { font-size: 22px; align-self: flex-end; margin-top: -24px; opacity: 0.25; }
+
+  /* ===== SECTION HEADERS ===== */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .section-title { font-size: 15px; font-weight: 700; color: var(--text-dark); display: flex; align-items: center; gap: 8px; }
+  .section-title .icon { font-size: 18px; }
+
+  /* ===== CHARTS GRID ===== */
+  .charts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .chart-card { background: var(--bg-white); border-radius: var(--radius); padding: 18px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .chart-card h3 { font-size: 13px; font-weight: 700; color: var(--text-mid); margin-bottom: 12px; }
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* ===== TABLES ===== */
+  .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; background: var(--bg-white); font-size: 13px; }
+  table th { background: var(--bg-surface); padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text-mid); text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table td { padding: 9px 12px; border-bottom: 1px solid #f0f2f7; color: var(--text-dark); vertical-align: middle; }
+  table tr:last-child td { border-bottom: none; }
+  table tr:hover td { background: #f7f9fd; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-orange { background: #fff7ed; color: #9a3412; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-purple { background: #f3f0ff; color: #5b21b6; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+
+  /* ===== FILTERS ===== */
+  .filter-bar { background: var(--bg-white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+  .filter-group label { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+  .filter-group select, .filter-group input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; color: var(--text-dark); background: var(--bg-surface); }
+  .filter-group select:focus, .filter-group input:focus { outline: none; border-color: var(--accent-blue); }
+
+  /* ===== SESSION SELECTOR PAGE ===== */
+  .session-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 20px; }
+  .session-card { background: var(--bg-white); border: 2px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; gap: 8px; }
+  .session-card:hover { border-color: var(--accent-blue); box-shadow: 0 4px 16px rgba(30,109,229,0.12); transform: translateY(-1px); }
+  .session-card.current { border-color: var(--accent-blue); background: #f0f6ff; }
+  .session-card.selected { border-color: var(--accent-green); background: #f0fdf4; }
+  .session-card .s-name { font-size: 16px; font-weight: 800; color: var(--text-dark); }
+  .session-card .s-status { font-size: 11px; }
+  .session-card .s-stats { display: flex; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
+  .session-card .stat-pill { background: var(--bg-surface); border-radius: 6px; padding: 4px 10px; font-size: 11px; color: var(--text-mid); }
+  .session-card .stat-pill strong { color: var(--accent-blue); }
+
+  /* ===== CONFLICT BADGES ===== */
+  .conflict-confirmed { background: #fee2e2; color: #991b1b; border-left: 4px solid var(--accent-red); }
+  .conflict-possible { background: #fff7ed; color: #9a3412; border-left: 4px solid var(--accent-orange); }
+  .conflict-none { background: #dcfce7; color: #166534; }
+
+  /* ===== TIMETABLE GRID ===== */
+  .timetable-container { overflow-x: auto; }
+  .tt-grid { border-collapse: collapse; min-width: 900px; }
+  .tt-grid th, .tt-grid td { border: 1px solid var(--border); padding: 6px 8px; font-size: 12px; text-align: center; }
+  .tt-grid th { background: var(--nav-bg); color: #fff; font-size: 11px; }
+  .tt-grid td { background: #fff; vertical-align: top; min-width: 120px; min-height: 60px; }
+  .tt-cell { background: #dbeafe; border-radius: 5px; padding: 4px 6px; font-size: 11px; margin-bottom: 2px; cursor: pointer; border-left: 3px solid var(--accent-blue); }
+  .tt-cell.green { background: #dcfce7; border-left-color: var(--accent-green); }
+  .tt-cell.orange { background: #fff7ed; border-left-color: var(--accent-orange); }
+  .tt-cell.red { background: #fee2e2; border-left-color: var(--accent-red); }
+
+  /* ===== UPLOAD AREA ===== */
+  .upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 40px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg-surface); }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent-blue); background: #f0f6ff; }
+  .upload-zone .upload-icon { font-size: 42px; margin-bottom: 10px; color: var(--accent-blue); }
+  .upload-zone p { color: var(--text-mid); font-size: 14px; margin-bottom: 6px; }
+  .upload-zone small { color: var(--text-muted); font-size: 12px; }
+
+  /* ===== MODAL ===== */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; padding: 24px; max-width: 700px; width: 95%; max-height: 90vh; overflow-y: auto; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .modal-header h2 { font-size: 16px; font-weight: 700; }
+  .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted); }
+
+  /* ===== TOAST ===== */
+  #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 3000; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--text-dark); color: #fff; padding: 12px 18px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); animation: slideUp 0.3s ease; max-width: 320px; }
+  .toast.success { background: var(--accent-green); }
+  .toast.error { background: var(--accent-red); }
+  .toast.warning { background: var(--accent-orange); }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ===== EMPTY STATE ===== */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+  .empty-state .empty-icon { font-size: 52px; margin-bottom: 14px; opacity: 0.5; }
+  .empty-state h3 { font-size: 16px; font-weight: 700; color: var(--text-mid); margin-bottom: 6px; }
+  .empty-state p { font-size: 13px; }
+
+  /* ===== PROGRESS BAR ===== */
+  .progress-bar-wrap { background: #e9edf5; border-radius: 20px; height: 8px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 20px; background: var(--accent-blue); transition: width 0.4s; }
+  .progress-bar-fill.green { background: var(--accent-green); }
+  .progress-bar-fill.orange { background: var(--accent-orange); }
+  .progress-bar-fill.red { background: var(--accent-red); }
+
+  /* ===== RESPONSIVE ===== */
+  .hamburger { display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-dark); }
+  @media (max-width: 768px) {
+    #sidebar { transform: translateX(-100%); }
+    #sidebar.open { transform: translateX(0); }
+    #main { margin-left: 0; }
+    .hamburger { display: block; }
+    .charts-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .page { padding: 14px; }
+  }
+
+  /* ===== FORM ELEMENTS ===== */
+  .form-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 12px; font-weight: 600; color: var(--text-mid); }
+  .form-group input, .form-group select, .form-group textarea { padding: 8px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; color: var(--text-dark); background: var(--bg-white); }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(30,109,229,0.08); }
+
+  /* ===== ROLE BADGE ===== */
+  .role-select { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 10px; font-size: 12px; color: var(--text-dark); cursor: pointer; }
+
+  /* ===== TABS ===== */
+  .tabs { display: flex; gap: 2px; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto; }
+  .tab { padding: 9px 18px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all 0.15s; }
+  .tab:hover { color: var(--accent-blue); }
+  .tab.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ===== ALERT ===== */
+  .alert { border-radius: var(--radius); padding: 12px 16px; font-size: 13px; margin-bottom: 14px; border: 1px solid; }
+  .alert-info { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+  .alert-warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+  .alert-success { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+  .alert-danger { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+
+  /* ===== DATA PREVIEW ===== */
+  .preview-table { max-height: 300px; overflow-y: auto; }
+  .import-row { font-size: 11px; }
+
+  /* Conflict item */
+  .conflict-item { border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px; }
+  .conflict-item .c-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+  .conflict-item .c-body .c-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .conflict-item .c-body .c-detail { font-size: 12px; opacity: 0.8; }
+
+  /* comparison chart */
+  .comparison-selector { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .comparison-selector .session-check { display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: var(--bg-white); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 13px; }
+  .comparison-selector .session-check input { width: 15px; height: 15px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<nav id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🏨</div>
+      <div class="sidebar-logo-text">
+        <strong>Jadual Waktu JPH</strong>
+        Politeknik Kota Kinabalu
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-section-label">Menu Utama</div>
+  <div class="nav-item active" onclick="navigateTo('page-home', this)">
+    <span class="nav-icon">🏠</span> Dashboard Utama
+  </div>
+  <div class="nav-item" onclick="navigateTo('page-session', this)">
+    <span class="nav-icon">📅</span> Pemilihan Sesi Akademik
+  </div>
+
+  <div class="nav-section-label">Pengurusan Jadual</div>
+  <div class="nav-item" onclick="navigateTo('page-timetable', this)">
+    <span class="nav-icon">📋</span> Senarai Jadual Waktu
+  </div>
+  <div class="nav-item" onclick="navigateTo('page-lecturer-tt', this)">
+    <span class="nav-icon">👨‍🏫</span> Jadual Waktu Pensyarah
+  </div>
+  <div class="nav-item" onclick="navigateTo('page-program-tt', this)">
+    <span class="nav-icon">🎓</span> Jadual Waktu Program & Kelas
+  </div>
+
+  <div class="nav-section-label">Pemantauan Pelajar</div>
+  <div class="nav-item" onclick="navigateTo('page-failed', this)">
+    <span class="nav-icon">⚠️</span> Pemantauan Pelajar Gagal
+    <span class="nav-badge" id="badge-failed">0</span>
+  </div>
+  <div class="nav-item" onclick="navigateTo('page-crossclass', this)">
+    <span class="nav-icon">🔀</span> Pemantauan Pelajar Tumpang
+    <span class="nav-badge" id="badge-cross">0</span>
+  </div>
+
+  <div class="nav-section-label">Pengurusan Sumber</div>
+  <div class="nav-item" onclick="navigateTo('page-classroom', this)">
+    <span class="nav-icon">🏫</span> Penggunaan Bilik Kuliah
+  </div>
+  <div class="nav-item" onclick="navigateTo('page-lab', this)">
+    <span class="nav-icon">🔬</span> Penggunaan Makmal
+  </div>
+
+  <div class="nav-section-label">Analisis</div>
+  <div class="nav-item" onclick="navigateTo('page-workload', this)">
+    <span class="nav-icon">📊</span> Analisis Beban Tugas Pensyarah
+  </div>
+  <div class="nav-item" onclick="navigateTo('page-conflict', this)">
+    <span class="nav-icon">🔴</span> Pengesanan Pertindihan Jadual
+    <span class="nav-badge" id="badge-conflict">0</span>
+  </div>
+  <div class="nav-item" onclick="navigateTo('page-compare', this)">
+    <span class="nav-icon">📈</span> Analisis Perbandingan Sesi
+  </div>
+  <div class="nav-item" onclick="navigateTo('page-report', this)">
+    <span class="nav-icon">📄</span> Laporan & Analisis
+  </div>
+
+  <div class="nav-section-label">Pengurusan Data</div>
+  <div class="nav-item" onclick="navigateTo('page-upload', this)">
+    <span class="nav-icon">⬆️</span> Muat Naik Jadual Waktu
+  </div>
+  <div class="nav-item" onclick="navigateTo('page-manage-session', this)">
+    <span class="nav-icon">⚙️</span> Pengurusan Sesi Akademik
+  </div>
+  <div class="nav-item" onclick="navigateTo('page-validate', this)">
+    <span class="nav-icon">✅</span> Pengesahan Data
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="session-pill">
+      <span>🗓</span>
+      <div><span>Sesi Aktif:</span><br><strong id="sidebar-session-label">–</strong></div>
+    </div>
+    <div style="margin-top:10px; display:flex; align-items:center; gap:8px;">
+      <span style="font-size:11px;color:#4a6a9a;">Peranan:</span>
+      <select class="role-select" id="role-select" onchange="changeRole(this.value)">
+        <option value="admin">Pentadbir</option>
+        <option value="hod">Ketua Jabatan</option>
+        <option value="coordinator">Penyelaras Program</option>
+        <option value="lecturer">Pensyarah</option>
+      </select>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== TOPBAR ===== -->
+<div id="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <div>
+        <div class="topbar-title" id="page-heading">Dashboard Utama</div>
+        <div class="topbar-sub">Jabatan Pelancongan & Hospitaliti – Politeknik Kota Kinabalu</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <select class="session-select-top" id="session-select-top" onchange="switchSession(this.value)">
+        <option value="S2_2026_2027">Sesi II 2026/2027</option>
+        <option value="S1_2026_2027">Sesi I 2026/2027</option>
+        <option value="S2_2025_2026">Sesi II 2025/2026</option>
+        <option value="S1_2025_2026">Sesi I 2025/2026</option>
+        <option value="S2_2023_2024">Sesi II 2023/2024</option>
+        <option value="S1_2023_2024">Sesi I 2023/2024</option>
+      </select>
+      <button class="btn btn-primary" onclick="navigateTo('page-upload',null)">⬆ Muat Naik</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: DASHBOARD UTAMA -->
+  <!-- ============================================================ -->
+  <div class="page active" id="page-home">
+    <div class="section-header">
+      <div class="section-title"><span class="icon">🏠</span> Dashboard Utama</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="refreshDashboard()">🔄 Muat Semula</button>
+        <button class="btn btn-outline btn-sm" onclick="exportDashboardPDF()">📄 Eksport PDF</button>
+      </div>
+    </div>
+
+    <div id="home-no-data" class="alert alert-info" style="display:none">
+      📭 <strong>Tiada Data untuk Sesi Ini.</strong> Sila muat naik fail jadual waktu di bahagian <a href="#" onclick="navigateTo('page-upload',null)" style="color:var(--accent-blue)">Muat Naik Jadual Waktu</a>.
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid" id="summary-cards">
+      <div class="summary-card"><div class="s-label">Jumlah Pensyarah</div><div class="s-val" id="s-lecturers">–</div><div class="s-sub">Pensyarah aktif</div><div class="s-icon">👨‍🏫</div></div>
+      <div class="summary-card green"><div class="s-label">Jumlah Kursus</div><div class="s-val" id="s-courses">–</div><div class="s-sub">Kod kursus unik</div><div class="s-icon">📚</div></div>
+      <div class="summary-card orange"><div class="s-label">Jumlah Kelas</div><div class="s-val" id="s-classes">–</div><div class="s-sub">Kumpulan kelas</div><div class="s-icon">🏫</div></div>
+      <div class="summary-card purple"><div class="s-label">Jumlah Pelajar</div><div class="s-val" id="s-students">–</div><div class="s-sub">Pelajar berdaftar</div><div class="s-icon">🎓</div></div>
+      <div class="summary-card"><div class="s-label">Bilik &amp; Makmal</div><div class="s-val" id="s-rooms">–</div><div class="s-sub">Ruang pembelajaran</div><div class="s-icon">🔑</div></div>
+      <div class="summary-card green"><div class="s-label">Jam Pengajaran</div><div class="s-val" id="s-hours">–</div><div class="s-sub">Jumlah jam seminggu</div><div class="s-icon">⏱️</div></div>
+      <div class="summary-card red"><div class="s-label">Pelajar Gagal</div><div class="s-val" id="s-failed">–</div><div class="s-sub">Perlu ulang kursus</div><div class="s-icon">⚠️</div></div>
+      <div class="summary-card orange"><div class="s-label">Pelajar Tumpang</div><div class="s-val" id="s-cross">–</div><div class="s-sub">Tumpang kelas lain</div><div class="s-icon">🔀</div></div>
+      <div class="summary-card red"><div class="s-label">Pertindihan Jadual</div><div class="s-val" id="s-conflicts">–</div><div class="s-sub">Perlu semakan</div><div class="s-icon">🔴</div></div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>📊 Jam Pengajaran Mengikut Pensyarah</h3>
+        <div class="chart-wrap"><canvas id="chart-lecturer-hours"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>📅 Agihan Kelas Mengikut Hari</h3>
+        <div class="chart-wrap"><canvas id="chart-day-dist"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>🏫 Penggunaan Bilik Kuliah</h3>
+        <div class="chart-wrap"><canvas id="chart-room-usage"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>🎓 Agihan Kelas Mengikut Program</h3>
+        <div class="chart-wrap"><canvas id="chart-program-dist"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Recent activity -->
+    <div class="card">
+      <div class="section-header">
+        <div class="section-title">📋 Rekod Jadual Waktu Terkini</div>
+        <button class="btn btn-outline btn-sm" onclick="navigateTo('page-timetable',null)">Lihat Semua →</button>
+      </div>
+      <div class="table-wrap">
+        <table id="home-recent-table">
+          <thead><tr><th>Hari</th><th>Masa</th><th>Kod Kursus</th><th>Nama Kursus</th><th>Kumpulan</th><th>Pensyarah</th><th>Bilik</th></tr></thead>
+          <tbody id="home-recent-tbody"><tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">Tiada rekod dimuatkan.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: PEMILIHAN SESI AKADEMIK -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-session">
+    <div class="section-header">
+      <div class="section-title"><span class="icon">📅</span> Pemilihan Sesi Akademik</div>
+    </div>
+    <div class="alert alert-info">Pilih sesi akademik untuk melihat, mengurus dan menganalisis rekod jadual waktu. Setiap sesi mempunyai pangkalan data tersendiri.</div>
+    <div class="session-grid" id="session-grid"></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: SENARAI JADUAL WAKTU -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-timetable">
+    <div class="section-header">
+      <div class="section-title"><span class="icon">📋</span> Senarai Jadual Waktu</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-success btn-sm" onclick="exportTableExcel('tt-main-tbody','Jadual_Waktu')">📥 Excel</button>
+        <button class="btn btn-outline btn-sm" onclick="printTable()">🖨️ Cetak</button>
+      </div>
+    </div>
+
+    <div class="tabs" id="tt-tabs">
+      <div class="tab active" onclick="switchTab('tt','weekly')">Mingguan</div>
+      <div class="tab" onclick="switchTab('tt','daily')">Harian</div>
+      <div class="tab" onclick="switchTab('tt','room')">Mengikut Bilik</div>
+    </div>
+
+    <div class="tab-content active" id="tt-tab-weekly">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="timetable-container" id="tt-weekly-view"></div>
+      </div>
+    </div>
+    <div class="tab-content" id="tt-tab-daily">
+      <div class="filter-bar">
+        <div class="filter-group"><label>Hari</label>
+          <select id="filter-day-tt" onchange="renderDailyTT()">
+            <option value="">-- Semua --</option>
+            <option>Isnin</option><option>Selasa</option><option>Rabu</option>
+            <option>Khamis</option><option>Jumaat</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>Hari</th><th>Masa</th><th>Kod Kursus</th><th>Nama Kursus</th><th>Kumpulan</th><th>Pensyarah</th><th>Bilik</th><th>Pelajar</th></tr></thead>
+        <tbody id="tt-daily-tbody"></tbody></table></div>
+    </div>
+    <div class="tab-content" id="tt-tab-room">
+      <div class="filter-bar">
+        <div class="filter-group"><label>Bilik</label>
+          <select id="filter-room-tt" onchange="renderRoomTT()"><option value="">-- Semua --</option></select>
+        </div>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>Bilik</th><th>Hari</th><th>Masa</th><th>Kod Kursus</th><th>Kumpulan</th><th>Pensyarah</th></tr></thead>
+        <tbody id="tt-room-tbody"></tbody></table></div>
+    </div>
+
+    <div style="margin-top:18px;">
+      <div class="section-header"><div class="section-title">🔍 Carian & Penapis Terperinci</div></div>
+      <div class="filter-bar">
+        <div class="filter-group"><label>Pensyarah</label><input type="text" id="f-lecturer" placeholder="Nama pensyarah..." oninput="filterMainTT()"></div>
+        <div class="filter-group"><label>Program</label><select id="f-program" onchange="filterMainTT()"><option value="">Semua Program</option></select></div>
+        <div class="filter-group"><label>Semester</label><select id="f-semester" onchange="filterMainTT()"><option value="">Semua Semester</option></select></div>
+        <div class="filter-group"><label>Kumpulan</label><input type="text" id="f-group" placeholder="Kumpulan kelas..." oninput="filterMainTT()"></div>
+        <div class="filter-group"><label>Kod Kursus</label><input type="text" id="f-code" placeholder="Contoh: HTR101..." oninput="filterMainTT()"></div>
+        <div class="filter-group"><label>Hari</label><select id="f-day" onchange="filterMainTT()"><option value="">Semua Hari</option><option>Isnin</option><option>Selasa</option><option>Rabu</option><option>Khamis</option><option>Jumaat</option></select></div>
+        <div class="filter-group"><label>Bilik</label><input type="text" id="f-room" placeholder="Nama bilik..." oninput="filterMainTT()"></div>
+        <button class="btn btn-outline btn-sm" style="align-self:flex-end" onclick="clearFilters()">✖ Kosongkan</button>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Hari</th><th>Masa Mula</th><th>Masa Tamat</th><th>Kod Kursus</th><th>Nama Kursus</th><th>Program</th><th>Sem</th><th>Kumpulan</th><th>Pensyarah</th><th>Bilik</th><th>Jml Pelajar</th></tr></thead>
+          <tbody id="tt-main-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: JADUAL WAKTU PENSYARAH -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-lecturer-tt">
+    <div class="section-header"><div class="section-title"><span class="icon">👨‍🏫</span> Jadual Waktu Pensyarah</div></div>
+    <div class="filter-bar">
+      <div class="filter-group"><label>Pilih Pensyarah</label>
+        <select id="select-lecturer-view" onchange="renderLecturerTT()"><option value="">-- Pilih Pensyarah --</option></select>
+      </div>
+    </div>
+    <div id="lecturer-tt-output">
+      <div class="empty-state"><div class="empty-icon">👨‍🏫</div><h3>Pilih Pensyarah</h3><p>Pilih nama pensyarah dari senarai di atas untuk melihat jadual waktu individu.</p></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: JADUAL WAKTU PROGRAM & KELAS -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-program-tt">
+    <div class="section-header"><div class="section-title"><span class="icon">🎓</span> Jadual Waktu Program & Kelas</div></div>
+    <div class="filter-bar">
+      <div class="filter-group"><label>Program</label>
+        <select id="select-program-view" onchange="filterProgramTT()"><option value="">-- Semua Program --</option></select>
+      </div>
+      <div class="filter-group"><label>Semester</label>
+        <select id="select-sem-view" onchange="filterProgramTT()"><option value="">-- Semua Semester --</option></select>
+      </div>
+      <div class="filter-group"><label>Kumpulan</label>
+        <select id="select-group-view" onchange="filterProgramTT()"><option value="">-- Semua Kumpulan --</option></select>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Hari</th><th>Masa</th><th>Kod Kursus</th><th>Nama Kursus</th><th>Program</th><th>Sem</th><th>Kumpulan</th><th>Pensyarah</th><th>Bilik</th></tr></thead>
+        <tbody id="program-tt-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: PEMANTAUAN PELAJAR GAGAL -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-failed">
+    <div class="section-header">
+      <div class="section-title"><span class="icon">⚠️</span> Pemantauan Pelajar Gagal</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="openAddFailedModal()">+ Tambah Rekod</button>
+        <button class="btn btn-success btn-sm" onclick="exportTableExcel('failed-tbody','Pelajar_Gagal')">📥 Excel</button>
+      </div>
+    </div>
+
+    <div class="summary-grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr))">
+      <div class="summary-card red"><div class="s-label">Jumlah Pelajar Gagal</div><div class="s-val" id="f-total">0</div></div>
+      <div class="summary-card orange"><div class="s-label">Kursus Terlibat</div><div class="s-val" id="f-courses">0</div></div>
+      <div class="summary-card purple"><div class="s-label">Program Terlibat</div><div class="s-val" id="f-programs">0</div></div>
+      <div class="summary-card"><div class="s-label">Ulang Sesi Ini</div><div class="s-val" id="f-retake">0</div></div>
+    </div>
+
+    <div class="charts-grid" style="margin-bottom:16px;">
+      <div class="chart-card"><h3>Pelajar Gagal Mengikut Kursus</h3><div class="chart-wrap"><canvas id="chart-failed-course"></canvas></div></div>
+      <div class="chart-card"><h3>Pelajar Gagal Mengikut Program</h3><div class="chart-wrap"><canvas id="chart-failed-prog"></canvas></div></div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-group"><label>Cari Pelajar</label><input type="text" id="ff-search" placeholder="Nama / No. Pendaftaran..." oninput="filterFailed()"></div>
+      <div class="filter-group"><label>Program</label><select id="ff-program" onchange="filterFailed()"><option value="">Semua Program</option></select></div>
+      <div class="filter-group"><label>Semester</label><select id="ff-semester" onchange="filterFailed()"><option value="">Semua Semester</option></select></div>
+      <div class="filter-group"><label>Kursus</label><select id="ff-course" onchange="filterFailed()"><option value="">Semua Kursus</option></select></div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>No. Pendaftaran</th><th>Nama Pelajar</th><th>Program</th><th>Sem</th><th>Kod Kursus</th><th>Nama Kursus</th><th>Kelas Asal</th><th>Kelas Baharu</th><th>Pensyarah</th><th>Status</th><th>Tindakan</th></tr></thead>
+        <tbody id="failed-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: PEMANTAUAN PELAJAR TUMPANG KELAS -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-crossclass">
+    <div class="section-header">
+      <div class="section-title"><span class="icon">🔀</span> Pemantauan Pelajar Tumpang Kelas</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="openAddCrossModal()">+ Tambah Rekod</button>
+        <button class="btn btn-success btn-sm" onclick="exportTableExcel('cross-tbody','Pelajar_Tumpang')">📥 Excel</button>
+      </div>
+    </div>
+
+    <div class="summary-grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr))">
+      <div class="summary-card orange"><div class="s-label">Jumlah Pelajar Tumpang</div><div class="s-val" id="c-total">0</div></div>
+      <div class="summary-card"><div class="s-label">Kelas Terlibat</div><div class="s-val" id="c-classes">0</div></div>
+      <div class="summary-card green"><div class="s-label">Kursus Terlibat</div><div class="s-val" id="c-courses">0</div></div>
+      <div class="summary-card purple"><div class="s-label">Program Terlibat</div><div class="s-val" id="c-programs">0</div></div>
+    </div>
+
+    <div class="charts-grid" style="margin-bottom:16px;">
+      <div class="chart-card"><h3>Pelajar Tumpang Mengikut Kelas</h3><div class="chart-wrap"><canvas id="chart-cross-class"></canvas></div></div>
+      <div class="chart-card"><h3>Pelajar Tumpang Mengikut Program</h3><div class="chart-wrap"><canvas id="chart-cross-prog"></canvas></div></div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-group"><label>Cari Pelajar</label><input type="text" id="cf-search" placeholder="Nama / No. Pendaftaran..." oninput="filterCross()"></div>
+      <div class="filter-group"><label>Program Asal</label><select id="cf-program" onchange="filterCross()"><option value="">Semua Program</option></select></div>
+      <div class="filter-group"><label>Kelas Ditumpangi</label><select id="cf-class" onchange="filterCross()"><option value="">Semua Kelas</option></select></div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>No. Pendaftaran</th><th>Nama Pelajar</th><th>Program Asal</th><th>Sem Asal</th><th>Kelas Asal</th><th>Kelas Ditumpangi</th><th>Kod Kursus</th><th>Nama Kursus</th><th>Pensyarah</th><th>Hari & Masa</th><th>Bilik</th><th>Tindakan</th></tr></thead>
+        <tbody id="cross-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: PENGGUNAAN BILIK KULIAH -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-classroom">
+    <div class="section-header"><div class="section-title"><span class="icon">🏫</span> Penggunaan Bilik Kuliah</div></div>
+    <div class="charts-grid">
+      <div class="chart-card"><h3>Jam Penggunaan Bilik Kuliah</h3><div class="chart-wrap"><canvas id="chart-cls-usage"></canvas></div></div>
+      <div class="chart-card"><h3>Agihan Penggunaan Mengikut Hari</h3><div class="chart-wrap"><canvas id="chart-cls-day"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:12px;">📋 Jadual Penggunaan Bilik Kuliah</div>
+      <div class="filter-bar">
+        <div class="filter-group"><label>Bilik</label><select id="filter-cls-room" onchange="renderClassroomTable()"><option value="">Semua Bilik</option></select></div>
+        <div class="filter-group"><label>Hari</label><select id="filter-cls-day" onchange="renderClassroomTable()"><option value="">Semua Hari</option><option>Isnin</option><option>Selasa</option><option>Rabu</option><option>Khamis</option><option>Jumaat</option></select></div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Bilik</th><th>Hari</th><th>Masa</th><th>Kod Kursus</th><th>Kumpulan</th><th>Pensyarah</th><th>Jml Pelajar</th><th>Status</th></tr></thead>
+          <tbody id="cls-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: PENGGUNAAN MAKMAL -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-lab">
+    <div class="section-header"><div class="section-title"><span class="icon">🔬</span> Penggunaan Makmal</div></div>
+    <div class="charts-grid">
+      <div class="chart-card"><h3>Jam Penggunaan Makmal</h3><div class="chart-wrap"><canvas id="chart-lab-usage"></canvas></div></div>
+      <div class="chart-card"><h3>Agihan Penggunaan Mengikut Hari</h3><div class="chart-wrap"><canvas id="chart-lab-day"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:12px;">📋 Jadual Penggunaan Makmal</div>
+      <div class="filter-bar">
+        <div class="filter-group"><label>Makmal</label><select id="filter-lab-room" onchange="renderLabTable()"><option value="">Semua Makmal</option></select></div>
+        <div class="filter-group"><label>Hari</label><select id="filter-lab-day" onchange="renderLabTable()"><option value="">Semua Hari</option><option>Isnin</option><option>Selasa</option><option>Rabu</option><option>Khamis</option><option>Jumaat</option></select></div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Makmal</th><th>Hari</th><th>Masa</th><th>Kod Kursus</th><th>Kumpulan</th><th>Pensyarah</th><th>Jml Pelajar</th><th>Status</th></tr></thead>
+          <tbody id="lab-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: ANALISIS BEBAN TUGAS PENSYARAH -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-workload">
+    <div class="section-header"><div class="section-title"><span class="icon">📊</span> Analisis Beban Tugas Pensyarah</div></div>
+    <div class="chart-card" style="margin-bottom:16px;"><h3>Jam Pengajaran Seminggu Mengikut Pensyarah</h3><div style="position:relative;height:300px"><canvas id="chart-workload-bar"></canvas></div></div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Pensyarah</th><th>Bilangan Kursus</th><th>Bilangan Kelas</th><th>Jumlah Jam/Minggu</th><th>Isnin</th><th>Selasa</th><th>Rabu</th><th>Khamis</th><th>Jumaat</th><th>Tahap Beban</th></tr></thead>
+        <tbody id="workload-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: PENGESANAN PERTINDIHAN JADUAL -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-conflict">
+    <div class="section-header">
+      <div class="section-title"><span class="icon">🔴</span> Pengesanan Pertindihan Jadual</div>
+      <button class="btn btn-primary btn-sm" onclick="runConflictDetection()">🔍 Semak Semula</button>
+    </div>
+
+    <div class="summary-grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr));">
+      <div class="summary-card red"><div class="s-label">Pertindihan Disahkan</div><div class="s-val" id="conf-confirmed">0</div></div>
+      <div class="summary-card orange"><div class="s-label">Kemungkinan Pertindihan</div><div class="s-val" id="conf-possible">0</div></div>
+      <div class="summary-card green"><div class="s-label">Tiada Pertindihan</div><div class="s-val" id="conf-none">–</div></div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('conflict','lecturer')">Pertindihan Pensyarah</div>
+      <div class="tab" onclick="switchTab('conflict','room')">Pertindihan Bilik</div>
+      <div class="tab" onclick="switchTab('conflict','student')">Pertindihan Pelajar</div>
+    </div>
+    <div class="tab-content active" id="conflict-tab-lecturer"><div id="conflict-lecturer-list"></div></div>
+    <div class="tab-content" id="conflict-tab-room"><div id="conflict-room-list"></div></div>
+    <div class="tab-content" id="conflict-tab-student"><div id="conflict-student-list"></div></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: ANALISIS PERBANDINGAN SESI -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-compare">
+    <div class="section-header"><div class="section-title"><span class="icon">📈</span> Analisis Perbandingan Sesi Akademik</div></div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="section-title" style="margin-bottom:10px;">Pilih Sesi untuk Dibandingkan</div>
+      <div class="comparison-selector" id="compare-session-selector"></div>
+      <button class="btn btn-primary" onclick="runComparison()">📊 Jana Perbandingan</button>
+    </div>
+    <div id="comparison-output">
+      <div class="empty-state"><div class="empty-icon">📈</div><h3>Pilih Sesi</h3><p>Pilih dua atau lebih sesi akademik kemudian klik Jana Perbandingan.</p></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: LAPORAN & ANALISIS -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-report">
+    <div class="section-header"><div class="section-title"><span class="icon">📄</span> Laporan & Analisis</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
+      <div class="card-sm" style="cursor:pointer;border-left:4px solid var(--accent-blue)" onclick="generateReport('overall')">
+        <div style="font-weight:700;margin-bottom:4px;">📋 Laporan Keseluruhan Jadual Waktu</div>
+        <div style="font-size:12px;color:var(--text-muted)">Semua rekod jadual waktu bagi sesi aktif</div>
+        <div style="margin-top:10px;display:flex;gap:6px;">
+          <button class="btn btn-primary btn-sm">📥 Excel</button>
+          <button class="btn btn-outline btn-sm">🖨️ Cetak</button>
+        </div>
+      </div>
+      <div class="card-sm" style="cursor:pointer;border-left:4px solid var(--accent-green)" onclick="generateReport('workload')">
+        <div style="font-weight:700;margin-bottom:4px;">👨‍🏫 Laporan Beban Tugas Pensyarah</div>
+        <div style="font-size:12px;color:var(--text-muted)">Jam pengajaran dan beban kerja</div>
+        <div style="margin-top:10px;display:flex;gap:6px;">
+          <button class="btn btn-success btn-sm">📥 Excel</button>
+          <button class="btn btn-outline btn-sm">🖨️ Cetak</button>
+        </div>
+      </div>
+      <div class="card-sm" style="cursor:pointer;border-left:4px solid var(--accent-orange)" onclick="generateReport('failed')">
+        <div style="font-weight:700;margin-bottom:4px;">⚠️ Laporan Pelajar Gagal</div>
+        <div style="font-size:12px;color:var(--text-muted)">Rekod pelajar yang perlu ulang kursus</div>
+        <div style="margin-top:10px;display:flex;gap:6px;">
+          <button class="btn btn-warning btn-sm">📥 Excel</button>
+          <button class="btn btn-outline btn-sm">🖨️ Cetak</button>
+        </div>
+      </div>
+      <div class="card-sm" style="cursor:pointer;border-left:4px solid var(--accent-purple)" onclick="generateReport('cross')">
+        <div style="font-weight:700;margin-bottom:4px;">🔀 Laporan Pelajar Tumpang Kelas</div>
+        <div style="font-size:12px;color:var(--text-muted)">Rekod pelajar yang tumpang kelas lain</div>
+        <div style="margin-top:10px;display:flex;gap:6px;">
+          <button class="btn btn-sm" style="background:var(--accent-purple);color:#fff">📥 Excel</button>
+          <button class="btn btn-outline btn-sm">🖨️ Cetak</button>
+        </div>
+      </div>
+      <div class="card-sm" style="cursor:pointer;border-left:4px solid var(--accent-red)" onclick="generateReport('conflict')">
+        <div style="font-weight:700;margin-bottom:4px;">🔴 Laporan Pertindihan Jadual</div>
+        <div style="font-size:12px;color:var(--text-muted)">Semua pertindihan yang dikesan</div>
+        <div style="margin-top:10px;display:flex;gap:6px;">
+          <button class="btn btn-danger btn-sm">📥 Excel</button>
+          <button class="btn btn-outline btn-sm">🖨️ Cetak</button>
+        </div>
+      </div>
+      <div class="card-sm" style="cursor:pointer;border-left:4px solid #0ea5e9" onclick="generateReport('rooms')">
+        <div style="font-weight:700;margin-bottom:4px;">🏫 Laporan Penggunaan Bilik & Makmal</div>
+        <div style="font-size:12px;color:var(--text-muted)">Statistik penggunaan ruang pembelajaran</div>
+        <div style="margin-top:10px;display:flex;gap:6px;">
+          <button class="btn btn-sm" style="background:#0ea5e9;color:#fff">📥 Excel</button>
+          <button class="btn btn-outline btn-sm">🖨️ Cetak</button>
+        </div>
+      </div>
+    </div>
+    <div id="report-output" style="margin-top:20px;"></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: MUAT NAIK JADUAL WAKTU -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-upload">
+    <div class="section-header"><div class="section-title"><span class="icon">⬆️</span> Muat Naik Jadual Waktu</div></div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Sesi Akademik</label>
+          <select id="upload-session">
+            <option value="S2_2026_2027">Sesi II 2026/2027</option>
+            <option value="S1_2026_2027">Sesi I 2026/2027</option>
+            <option value="S2_2025_2026">Sesi II 2025/2026</option>
+            <option value="S1_2025_2026">Sesi I 2025/2026</option>
+            <option value="S2_2023_2024">Sesi II 2023/2024</option>
+            <option value="S1_2023_2024">Sesi I 2023/2024</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Jenis Data</label>
+          <select id="upload-type">
+            <option value="timetable">Jadual Waktu Utama</option>
+            <option value="failed">Pelajar Gagal</option>
+            <option value="cross">Pelajar Tumpang Kelas</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" ondrop="handleDrop(event)" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+        <div class="upload-icon">📂</div>
+        <p><strong>Klik atau seret fail ke sini</strong></p>
+        <small>Format yang disokong: .xlsx, .csv, .xls | Saiz maksimum: 10MB</small>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileSelect(this)">
+      </div>
+
+      <div id="upload-preview" style="display:none;margin-top:16px;">
+        <div class="alert alert-info" id="upload-info"></div>
+        <div class="section-title" style="margin-bottom:10px;">👁 Pratonton Data (10 baris pertama)</div>
+        <div class="preview-table table-wrap">
+          <table id="preview-table"><thead id="preview-thead"></thead><tbody id="preview-tbody"></tbody></table>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:10px;">
+          <button class="btn btn-success" onclick="confirmImport()">✅ Sahkan & Simpan</button>
+          <button class="btn btn-outline" onclick="cancelImport()">✖ Batal</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="margin-bottom:10px;">📋 Panduan Format Fail</div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('upload-guide','tt')">Jadual Waktu</div>
+        <div class="tab" onclick="switchTab('upload-guide','failed')">Pelajar Gagal</div>
+        <div class="tab" onclick="switchTab('upload-guide','cross')">Pelajar Tumpang</div>
+      </div>
+      <div class="tab-content active" id="upload-guide-tab-tt">
+        <div class="alert alert-info">Lajur yang diperlukan (mengikut urutan dalam fail Excel/CSV):</div>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>Nama Lajur</th><th>Contoh</th><th>Wajib</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Hari</td><td>Isnin</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>2</td><td>Masa Mula</td><td>08:00</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>3</td><td>Masa Tamat</td><td>10:00</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>4</td><td>Kod Kursus</td><td>HTR101</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>5</td><td>Nama Kursus</td><td>Pengantar Hospitaliti</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>6</td><td>Program</td><td>DPH</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>7</td><td>Semester</td><td>1</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>8</td><td>Kumpulan</td><td>DPH1A</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>9</td><td>Nama Pensyarah</td><td>Nor Azman bin Ali</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>10</td><td>Bilik</td><td>DK101</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>11</td><td>Jenis Bilik</td><td>Kuliah / Makmal</td><td><span class="badge badge-orange">Pilihan</span></td></tr>
+            <tr><td>12</td><td>Jumlah Pelajar</td><td>35</td><td><span class="badge badge-orange">Pilihan</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="tab-content" id="upload-guide-tab-failed">
+        <div class="alert alert-info">Format fail untuk Pelajar Gagal:</div>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>Nama Lajur</th><th>Contoh</th><th>Wajib</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>No Pendaftaran</td><td>23DPH00001</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>2</td><td>Nama Pelajar</td><td>Ahmad bin Karim</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>3</td><td>Program</td><td>DPH</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>4</td><td>Semester</td><td>2</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>5</td><td>Kod Kursus</td><td>HTR201</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>6</td><td>Nama Kursus</td><td>Operasi Hotel</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>7</td><td>Kelas Asal</td><td>DPH2A</td><td><span class="badge badge-orange">Pilihan</span></td></tr>
+            <tr><td>8</td><td>Kelas Baharu</td><td>DPH2B</td><td><span class="badge badge-orange">Pilihan</span></td></tr>
+            <tr><td>9</td><td>Nama Pensyarah</td><td>Siti Rahmah binti Daud</td><td><span class="badge badge-orange">Pilihan</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="tab-content" id="upload-guide-tab-cross">
+        <div class="alert alert-info">Format fail untuk Pelajar Tumpang Kelas:</div>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>Nama Lajur</th><th>Contoh</th><th>Wajib</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>No Pendaftaran</td><td>23DHT00042</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>2</td><td>Nama Pelajar</td><td>Nurul Ain binti Hamid</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>3</td><td>Program Asal</td><td>DHT</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>4</td><td>Semester Asal</td><td>3</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>5</td><td>Kelas Asal</td><td>DHT3A</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>6</td><td>Kelas Ditumpangi</td><td>DPH3B</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>7</td><td>Kod Kursus</td><td>HTR301</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>8</td><td>Nama Kursus</td><td>Pengurusan Pelancongan</td><td><span class="badge badge-red">Wajib</span></td></tr>
+            <tr><td>9</td><td>Nama Pensyarah</td><td>Zainal bin Hasan</td><td><span class="badge badge-orange">Pilihan</span></td></tr>
+            <tr><td>10</td><td>Hari</td><td>Rabu</td><td><span class="badge badge-orange">Pilihan</span></td></tr>
+            <tr><td>11</td><td>Masa</td><td>10:00-12:00</td><td><span class="badge badge-orange">Pilihan</span></td></tr>
+            <tr><td>12</td><td>Bilik</td><td>DK201</td><td><span class="badge badge-orange">Pilihan</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: PENGURUSAN SESI AKADEMIK -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-manage-session">
+    <div class="section-header"><div class="section-title"><span class="icon">⚙️</span> Pengurusan Sesi Akademik</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Sesi Akademik</th><th>Rekod Jadual</th><th>Pelajar Gagal</th><th>Pelajar Tumpang</th><th>Status Data</th><th>Tarikh Muat Naik</th><th>Tindakan</th></tr></thead>
+        <tbody id="manage-session-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PAGE: PENGESAHAN DATA -->
+  <!-- ============================================================ -->
+  <div class="page" id="page-validate">
+    <div class="section-header">
+      <div class="section-title"><span class="icon">✅</span> Pengesahan Data</div>
+      <button class="btn btn-primary btn-sm" onclick="runValidation()">🔍 Semak Data</button>
+    </div>
+    <div id="validation-output">
+      <div class="empty-state"><div class="empty-icon">✅</div><h3>Pengesahan Data</h3><p>Klik butang "Semak Data" untuk memulakan semakan automatik terhadap rekod sesi aktif.</p></div>
+    </div>
+  </div>
+
+</div><!-- end #main -->
+
+<!-- ===== MODALS ===== -->
+<!-- Add Failed Student Modal -->
+<div class="modal-overlay" id="modal-failed">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>⚠️ Tambah Rekod Pelajar Gagal</h2>
+      <button class="modal-close" onclick="closeModal('modal-failed')">✕</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>No. Pendaftaran *</label><input id="mf-regno" type="text" placeholder="23DPH00001"></div>
+      <div class="form-group"><label>Nama Pelajar *</label><input id="mf-name" type="text" placeholder="Nama penuh"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Program *</label><input id="mf-program" type="text" placeholder="DPH"></div>
+      <div class="form-group"><label>Semester *</label><input id="mf-sem" type="text" placeholder="2"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Kod Kursus *</label><input id="mf-code" type="text" placeholder="HTR201"></div>
+      <div class="form-group"><label>Nama Kursus *</label><input id="mf-cname" type="text" placeholder="Operasi Hotel"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Kelas Asal</label><input id="mf-origclass" type="text" placeholder="DPH2A"></div>
+      <div class="form-group"><label>Kelas Baharu</label><input id="mf-newclass" type="text" placeholder="DPH2B"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Nama Pensyarah</label><input id="mf-lecturer" type="text" placeholder="Nama pensyarah"></div>
+      <div class="form-group"><label>Status</label><select id="mf-status"><option value="Ulang Kursus">Ulang Kursus</option><option value="Ambil Semula">Ambil Semula</option><option value="Tangguh">Tangguh</option></select></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px;">
+      <button class="btn btn-success" onclick="saveFailedRecord()">💾 Simpan</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-failed')">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Cross-Class Student Modal -->
+<div class="modal-overlay" id="modal-cross">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🔀 Tambah Rekod Pelajar Tumpang Kelas</h2>
+      <button class="modal-close" onclick="closeModal('modal-cross')">✕</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>No. Pendaftaran *</label><input id="mc-regno" type="text" placeholder="23DHT00042"></div>
+      <div class="form-group"><label>Nama Pelajar *</label><input id="mc-name" type="text" placeholder="Nama penuh"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Program Asal *</label><input id="mc-program" type="text" placeholder="DHT"></div>
+      <div class="form-group"><label>Semester Asal *</label><input id="mc-sem" type="text" placeholder="3"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Kelas Asal *</label><input id="mc-origclass" type="text" placeholder="DHT3A"></div>
+      <div class="form-group"><label>Kelas Ditumpangi *</label><input id="mc-newclass" type="text" placeholder="DPH3B"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Kod Kursus *</label><input id="mc-code" type="text" placeholder="HTR301"></div>
+      <div class="form-group"><label>Nama Kursus *</label><input id="mc-cname" type="text" placeholder="Pengurusan Pelancongan"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Nama Pensyarah</label><input id="mc-lecturer" type="text" placeholder="Nama pensyarah"></div>
+      <div class="form-group"><label>Hari &amp; Masa</label><input id="mc-time" type="text" placeholder="Rabu 10:00-12:00"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Bilik</label><input id="mc-room" type="text" placeholder="DK201"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px;">
+      <button class="btn btn-success" onclick="saveCrossRecord()">💾 Simpan</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-cross')">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+// ================================================================
+// APP STATE
+// ================================================================
+const SESSIONS = [
+  { id: 'S2_2026_2027', name: 'Sesi II 2026/2027', current: true },
+  { id: 'S1_2026_2027', name: 'Sesi I 2026/2027' },
+  { id: 'S2_2025_2026', name: 'Sesi II 2025/2026' },
+  { id: 'S1_2025_2026', name: 'Sesi I 2025/2026' },
+  { id: 'S2_2023_2024', name: 'Sesi II 2023/2024' },
+  { id: 'S1_2023_2024', name: 'Sesi I 2023/2024' },
+];
+
+let activeSession = 'S2_2026_2027';
+let currentRole = 'admin';
+let pendingImport = null;
+let pendingImportType = null;
+let pendingImportSession = null;
+
+const DAYS_ORDER = ['Isnin','Selasa','Rabu','Khamis','Jumaat'];
+const TIMES = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
+
+// Chart instances registry
+const charts = {};
+
+// ================================================================
+// INDEXEDDB STORAGE
+// ================================================================
+let db;
+const DB_NAME = 'JadualWaktuJPH';
+const DB_VERSION = 2;
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('timetable')) d.createObjectStore('timetable', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('failed')) d.createObjectStore('failed', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('crossclass')) d.createObjectStore('crossclass', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'key' });
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbPut(storeName, record) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    const req = tx.objectStore(storeName).put(record);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbAdd(storeName, record) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    const req = tx.objectStore(storeName).add(record);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbGetAll(storeName) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readonly');
+    const req = tx.objectStore(storeName).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbDelete(storeName, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    const req = tx.objectStore(storeName).delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function getSessionData(type) {
+  const all = await dbGetAll(type);
+  return all.filter(r => r.session === activeSession);
+}
+
+// ================================================================
+// NAVIGATION
+// ================================================================
+const PAGE_TITLES = {
+  'page-home': 'Dashboard Utama',
+  'page-session': 'Pemilihan Sesi Akademik',
+  'page-timetable': 'Senarai Jadual Waktu',
+  'page-lecturer-tt': 'Jadual Waktu Pensyarah',
+  'page-program-tt': 'Jadual Waktu Program & Kelas',
+  'page-failed': 'Pemantauan Pelajar Gagal',
+  'page-crossclass': 'Pemantauan Pelajar Tumpang Kelas',
+  'page-classroom': 'Penggunaan Bilik Kuliah',
+  'page-lab': 'Penggunaan Makmal',
+  'page-workload': 'Analisis Beban Tugas Pensyarah',
+  'page-conflict': 'Pengesanan Pertindihan Jadual',
+  'page-compare': 'Analisis Perbandingan Sesi Akademik',
+  'page-report': 'Laporan & Analisis',
+  'page-upload': 'Muat Naik Jadual Waktu',
+  'page-manage-session': 'Pengurusan Sesi Akademik',
+  'page-validate': 'Pengesahan Data',
+};
+
+function navigateTo(pageId, navEl) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pg = document.getElementById(pageId);
+  if (pg) pg.classList.add('active');
+  if (navEl) navEl.classList.add('active');
+  document.getElementById('page-heading').textContent = PAGE_TITLES[pageId] || pageId;
+  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+  loadPage(pageId);
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+function changeRole(role) {
+  currentRole = role;
+  showToast(`Peranan ditukar kepada: ${role}`, 'success');
+}
+
+// ================================================================
+// SESSION MANAGEMENT
+// ================================================================
+function getSessionName(id) {
+  return SESSIONS.find(s => s.id === id)?.name || id;
+}
+
+function switchSession(val) {
+  activeSession = val;
+  document.getElementById('sidebar-session-label').textContent = getSessionName(val);
+  document.getElementById('session-select-top').value = val;
+  refreshDashboard();
+  showToast(`Sesi ditukar kepada: ${getSessionName(val)}`, 'success');
+}
+
+function renderSessionGrid() {
+  const grid = document.getElementById('session-grid');
+  grid.innerHTML = '';
+  SESSIONS.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'session-card' + (s.id === activeSession ? ' selected' : '') + (s.current ? ' current' : '');
+    card.innerHTML = `
+      <div class="s-name">${s.name}</div>
+      <div class="s-status">${s.current ? '<span class="badge badge-green">Sesi Semasa</span>' : '<span class="badge badge-gray">Sesi Lepas</span>'} ${s.id === activeSession ? '<span class="badge badge-blue">Aktif</span>' : ''}</div>
+      <div class="s-stats" id="sess-stats-${s.id}"><span class="stat-pill">Memuatkan...</span></div>
+      <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="switchSession('${s.id}');navigateTo('page-home',null)">Pilih Sesi Ini →</button>
+    `;
+    grid.appendChild(card);
+    loadSessionStats(s.id);
+  });
+}
+
+async function loadSessionStats(sessionId) {
+  const tt = (await dbGetAll('timetable')).filter(r => r.session === sessionId);
+  const ff = (await dbGetAll('failed')).filter(r => r.session === sessionId);
+  const cc = (await dbGetAll('crossclass')).filter(r => r.session === sessionId);
+  const el = document.getElementById(`sess-stats-${sessionId}`);
+  if (el) {
+    if (tt.length === 0 && ff.length === 0 && cc.length === 0) {
+      el.innerHTML = `<span class="stat-pill" style="color:var(--text-muted)">Tiada Data</span>`;
+    } else {
+      el.innerHTML = `<span class="stat-pill">Jadual: <strong>${tt.length}</strong></span><span class="stat-pill">Gagal: <strong>${ff.length}</strong></span><span class="stat-pill">Tumpang: <strong>${cc.length}</strong></span>`;
+    }
+  }
+}
+
+// ================================================================
+// DASHBOARD REFRESH
+// ================================================================
+async function refreshDashboard() {
+  const tt = await getSessionData('timetable');
+  const ff = await getSessionData('failed');
+  const cc = await getSessionData('crossclass');
+
+  const noData = tt.length === 0 && ff.length === 0 && cc.length === 0;
+  document.getElementById('home-no-data').style.display = noData ? 'block' : 'none';
+
+  // Summary stats
+  const lecturers = [...new Set(tt.map(r => r.lecturer).filter(Boolean))];
+  const courses = [...new Set(tt.map(r => r.courseCode).filter(Boolean))];
+  const classes = [...new Set(tt.map(r => r.group).filter(Boolean))];
+  const rooms = [...new Set(tt.map(r => r.room).filter(Boolean))];
+  const totalStudents = tt.reduce((s, r) => s + (parseInt(r.students) || 0), 0);
+  const totalHours = computeTotalHours(tt);
+  const conflicts = detectConflictsQuick(tt);
+
+  set('s-lecturers', lecturers.length || (noData ? '–' : 0));
+  set('s-courses', courses.length || (noData ? '–' : 0));
+  set('s-classes', classes.length || (noData ? '–' : 0));
+  set('s-students', totalStudents || (noData ? '–' : 0));
+  set('s-rooms', rooms.length || (noData ? '–' : 0));
+  set('s-hours', totalHours || (noData ? '–' : 0));
+  set('s-failed', ff.length || (noData ? '–' : 0));
+  set('s-cross', cc.length || (noData ? '–' : 0));
+  set('s-conflicts', conflicts || (noData ? '–' : 0));
+
+  // Update nav badges
+  document.getElementById('badge-failed').textContent = ff.length;
+  document.getElementById('badge-cross').textContent = cc.length;
+  document.getElementById('badge-conflict').textContent = conflicts;
+
+  // Recent records
+  renderRecentTable(tt.slice(0, 10));
+
+  // Charts
+  renderHomeCharts(tt);
+}
+
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function computeTotalHours(records) {
+  let total = 0;
+  records.forEach(r => {
+    const start = timeToMinutes(r.timeStart);
+    const end = timeToMinutes(r.timeEnd);
+    if (start >= 0 && end > start) total += (end - start) / 60;
+  });
+  return Math.round(total * 10) / 10;
+}
+
+function timeToMinutes(t) {
+  if (!t) return -1;
+  const parts = String(t).split(':');
+  if (parts.length < 2) return -1;
+  return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+}
+
+function detectConflictsQuick(tt) {
+  let count = 0;
+  const lecturerSlots = {};
+  const roomSlots = {};
+  tt.forEach(r => {
+    const lKey = `${r.lecturer}|${r.day}|${r.timeStart}`;
+    const rKey = `${r.room}|${r.day}|${r.timeStart}`;
+    if (r.lecturer) {
+      if (lecturerSlots[lKey]) count++;
+      lecturerSlots[lKey] = true;
+    }
+    if (r.room) {
+      if (roomSlots[rKey]) count++;
+      roomSlots[rKey] = true;
+    }
+  });
+  return count;
+}
+
+function renderRecentTable(records) {
+  const tbody = document.getElementById('home-recent-tbody');
+  if (!records.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">Tiada rekod dimuatkan.</td></tr>'; return; }
+  tbody.innerHTML = records.map(r => `
+    <tr>
+      <td>${r.day||'–'}</td>
+      <td>${r.timeStart||'–'}–${r.timeEnd||'–'}</td>
+      <td><span class="badge badge-blue">${r.courseCode||'–'}</span></td>
+      <td>${r.courseName||'–'}</td>
+      <td><span class="badge badge-gray">${r.group||'–'}</span></td>
+      <td>${r.lecturer||'–'}</td>
+      <td>${r.room||'–'}</td>
+    </tr>`).join('');
+}
+
+function renderHomeCharts(tt) {
+  // Chart 1: Lecturer hours
+  const lecturerHours = {};
+  tt.forEach(r => {
+    if (!r.lecturer) return;
+    const h = (timeToMinutes(r.timeEnd) - timeToMinutes(r.timeStart)) / 60;
+    lecturerHours[r.lecturer] = (lecturerHours[r.lecturer] || 0) + (h > 0 ? h : 0);
+  });
+  const lNames = Object.keys(lecturerHours).slice(0, 12);
+  const lHours = lNames.map(n => Math.round(lecturerHours[n] * 10) / 10);
+  renderBarChart('chart-lecturer-hours', lNames, lHours, 'Jam Pengajaran', '#1e6de5');
+
+  // Chart 2: Day distribution
+  const dayCounts = {};
+  DAYS_ORDER.forEach(d => dayCounts[d] = 0);
+  tt.forEach(r => { if (r.day && dayCounts[r.day] !== undefined) dayCounts[r.day]++; });
+  renderBarChart('chart-day-dist', DAYS_ORDER, DAYS_ORDER.map(d => dayCounts[d]), 'Bilangan Kelas', '#17a35a');
+
+  // Chart 3: Room usage
+  const roomHours = {};
+  tt.forEach(r => {
+    if (!r.room) return;
+    const h = (timeToMinutes(r.timeEnd) - timeToMinutes(r.timeStart)) / 60;
+    roomHours[r.room] = (roomHours[r.room] || 0) + (h > 0 ? h : 0);
+  });
+  const rooms = Object.keys(roomHours).slice(0, 10);
+  renderBarChart('chart-room-usage', rooms, rooms.map(r => Math.round(roomHours[r]*10)/10), 'Jam Digunakan', '#e97620');
+
+  // Chart 4: Program distribution
+  const progCounts = {};
+  tt.forEach(r => { if (r.program) progCounts[r.program] = (progCounts[r.program] || 0) + 1; });
+  const progs = Object.keys(progCounts);
+  renderPieChart('chart-program-dist', progs, progs.map(p => progCounts[p]));
+}
+
+function renderBarChart(canvasId, labels, data, label, color) {
+  if (charts[canvasId]) { charts[canvasId].destroy(); }
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels.length ? labels : ['Tiada Data'],
+      datasets: [{ label, data: data.length ? data : [0], backgroundColor: color + 'cc', borderColor: color, borderWidth: 1, borderRadius: 5 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.raw}` } } },
+      scales: { y: { beginAtZero: true, ticks: { font: { size: 11 } } }, x: { ticks: { font: { size: 10 }, maxRotation: 45 } } }
+    }
+  });
+}
+
+function renderPieChart(canvasId, labels, data) {
+  if (charts[canvasId]) { charts[canvasId].destroy(); }
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  const COLORS = ['#1e6de5','#17a35a','#e97620','#d93025','#7c5cd8','#0ea5e9','#d97706','#059669'];
+  charts[canvasId] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: labels.length ? labels : ['Tiada Data'], datasets: [{ data: data.length ? data : [1], backgroundColor: COLORS.slice(0, labels.length || 1), borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10 } } } }
+  });
+}
+
+// ================================================================
+// TIMETABLE PAGES
+// ================================================================
+async function renderTimetablePage() {
+  const tt = await getSessionData('timetable');
+
+  // Populate filter selects
+  populateSelectFromData('f-program', [...new Set(tt.map(r => r.program).filter(Boolean))]);
+  populateSelectFromData('f-semester', [...new Set(tt.map(r => r.semester).filter(Boolean))]);
+  populateSelectFromData('filter-room-tt', [...new Set(tt.map(r => r.room).filter(Boolean))]);
+
+  renderWeeklyTT(tt);
+  filterMainTT();
+}
+
+function renderWeeklyTT(tt) {
+  const container = document.getElementById('tt-weekly-view');
+  const slots = [...new Set(tt.map(r => r.timeStart).filter(Boolean))].sort();
+  if (!slots.length) { container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><h3>Tiada Data</h3><p>Muat naik jadual waktu untuk melihat paparan mingguan.</p></div>'; return; }
+
+  let html = `<table class="tt-grid"><thead><tr><th style="min-width:80px">Masa</th>`;
+  DAYS_ORDER.forEach(d => html += `<th>${d}</th>`);
+  html += '</tr></thead><tbody>';
+
+  slots.forEach(slot => {
+    html += `<tr><td style="background:var(--bg-surface);font-weight:700;font-size:11px;text-align:center">${slot}</td>`;
+    DAYS_ORDER.forEach(day => {
+      const cells = tt.filter(r => r.day === day && r.timeStart === slot);
+      html += `<td>`;
+      cells.forEach(c => {
+        html += `<div class="tt-cell" title="${c.courseName||''} | ${c.lecturer||''} | ${c.room||''}"><strong>${c.courseCode||'?'}</strong><br>${c.group||''}<br><small>${c.room||''}</small></div>`;
+      });
+      html += `</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+async function renderDailyTT() {
+  const tt = await getSessionData('timetable');
+  const day = document.getElementById('filter-day-tt').value;
+  const filtered = day ? tt.filter(r => r.day === day) : tt;
+  const tbody = document.getElementById('tt-daily-tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-muted)">Tiada rekod.</td></tr>'; return; }
+  tbody.innerHTML = filtered.sort((a,b) => DAYS_ORDER.indexOf(a.day)-DAYS_ORDER.indexOf(b.day)).map(r => `
+    <tr><td>${r.day||'–'}</td><td>${r.timeStart||'–'}</td><td>${r.timeEnd||'–'}</td><td><span class="badge badge-blue">${r.courseCode||'–'}</span></td>
+    <td>${r.courseName||'–'}</td><td><span class="badge badge-gray">${r.group||'–'}</span></td><td>${r.lecturer||'–'}</td><td>${r.room||'–'}</td><td>${r.students||'–'}</td></tr>`).join('');
+}
+
+async function renderRoomTT() {
+  const tt = await getSessionData('timetable');
+  const room = document.getElementById('filter-room-tt').value;
+  const filtered = room ? tt.filter(r => r.room === room) : tt;
+  const tbody = document.getElementById('tt-room-tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-muted)">Tiada rekod.</td></tr>'; return; }
+  tbody.innerHTML = filtered.sort((a,b) => (a.room||'').localeCompare(b.room||'')).map(r => `
+    <tr><td>${r.room||'–'}</td><td>${r.day||'–'}</td><td>${r.timeStart||'–'}–${r.timeEnd||'–'}</td>
+    <td><span class="badge badge-blue">${r.courseCode||'–'}</span></td><td>${r.group||'–'}</td><td>${r.lecturer||'–'}</td></tr>`).join('');
+}
+
+async function filterMainTT() {
+  const tt = await getSessionData('timetable');
+  const lec = (document.getElementById('f-lecturer').value||'').toLowerCase();
+  const prog = document.getElementById('f-program').value;
+  const sem = document.getElementById('f-semester').value;
+  const grp = (document.getElementById('f-group').value||'').toLowerCase();
+  const code = (document.getElementById('f-code').value||'').toLowerCase();
+  const day = document.getElementById('f-day').value;
+  const room = (document.getElementById('f-room').value||'').toLowerCase();
+
+  const filtered = tt.filter(r =>
+    (!lec || (r.lecturer||'').toLowerCase().includes(lec)) &&
+    (!prog || r.program === prog) &&
+    (!sem || String(r.semester) === String(sem)) &&
+    (!grp || (r.group||'').toLowerCase().includes(grp)) &&
+    (!code || (r.courseCode||'').toLowerCase().includes(code)) &&
+    (!day || r.day === day) &&
+    (!room || (r.room||'').toLowerCase().includes(room))
+  );
+
+  const tbody = document.getElementById('tt-main-tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text-muted)">Tiada rekod ditemui.</td></tr>'; return; }
+  tbody.innerHTML = filtered.map(r => `
+    <tr>
+      <td>${r.day||'–'}</td><td>${r.timeStart||'–'}</td><td>${r.timeEnd||'–'}</td>
+      <td><span class="badge badge-blue">${r.courseCode||'–'}</span></td>
+      <td>${r.courseName||'–'}</td><td>${r.program||'–'}</td>
+      <td>${r.semester||'–'}</td><td><span class="badge badge-gray">${r.group||'–'}</span></td>
+      <td>${r.lecturer||'–'}</td><td>${r.room||'–'}</td><td>${r.students||'–'}</td>
+    </tr>`).join('');
+}
+
+function clearFilters() {
+  ['f-lecturer','f-group','f-code','f-room'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  ['f-program','f-semester','f-day'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  filterMainTT();
+}
+
+// ================================================================
+// LECTURER TIMETABLE
+// ================================================================
+async function renderLecturerTTPage() {
+  const tt = await getSessionData('timetable');
+  const lecturers = [...new Set(tt.map(r => r.lecturer).filter(Boolean))].sort();
+  const sel = document.getElementById('select-lecturer-view');
+  sel.innerHTML = '<option value="">-- Pilih Pensyarah --</option>' + lecturers.map(l => `<option value="${l}">${l}</option>`).join('');
+}
+
+async function renderLecturerTT() {
+  const val = document.getElementById('select-lecturer-view').value;
+  const output = document.getElementById('lecturer-tt-output');
+  if (!val) { output.innerHTML = '<div class="empty-state"><div class="empty-icon">👨‍🏫</div><h3>Pilih Pensyarah</h3></div>'; return; }
+  const tt = (await getSessionData('timetable')).filter(r => r.lecturer === val);
+  const totalH = computeTotalHours(tt);
+  const courses = [...new Set(tt.map(r => r.courseCode).filter(Boolean))];
+
+  let html = `<div class="card" style="margin-bottom:12px;">
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div><div style="font-size:11px;color:var(--text-muted)">Pensyarah</div><div style="font-size:16px;font-weight:800">${val}</div></div>
+      <div><div style="font-size:11px;color:var(--text-muted)">Jumlah Kursus</div><div style="font-size:22px;font-weight:800;color:var(--accent-blue)">${courses.length}</div></div>
+      <div><div style="font-size:11px;color:var(--text-muted)">Jumlah Kelas</div><div style="font-size:22px;font-weight:800;color:var(--accent-green)">${tt.length}</div></div>
+      <div><div style="font-size:11px;color:var(--text-muted)">Jam / Minggu</div><div style="font-size:22px;font-weight:800;color:var(--accent-orange)">${totalH}j</div></div>
+    </div>
+  </div>`;
+
+  // Build timetable grid
+  const slots = [...new Set(tt.map(r => r.timeStart))].sort();
+  html += `<div class="card"><h3 style="margin-bottom:10px">Jadual Waktu Mingguan</h3><div class="timetable-container"><table class="tt-grid"><thead><tr><th>Masa</th>`;
+  DAYS_ORDER.forEach(d => html += `<th>${d}</th>`);
+  html += '</tr></thead><tbody>';
+  slots.forEach(slot => {
+    html += `<tr><td style="background:var(--bg-surface);font-weight:700;font-size:11px">${slot}</td>`;
+    DAYS_ORDER.forEach(day => {
+      const cells = tt.filter(r => r.day === day && r.timeStart === slot);
+      html += `<td>` + cells.map(c => `<div class="tt-cell green"><strong>${c.courseCode||''}</strong><br>${c.group||''}<br><small>${c.room||''}</small></div>`).join('') + `</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+
+  html += `<div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>Hari</th><th>Masa</th><th>Kod Kursus</th><th>Nama Kursus</th><th>Kumpulan</th><th>Bilik</th><th>Pelajar</th></tr></thead>
+    <tbody>${tt.map(r => `<tr><td>${r.day||'–'}</td><td>${r.timeStart||'–'}–${r.timeEnd||'–'}</td><td><span class="badge badge-blue">${r.courseCode||'–'}</span></td><td>${r.courseName||'–'}</td><td>${r.group||'–'}</td><td>${r.room||'–'}</td><td>${r.students||'–'}</td></tr>`).join('')}</tbody></table></div>`;
+
+  output.innerHTML = html;
+}
+
+// ================================================================
+// PROGRAM TIMETABLE
+// ================================================================
+async function renderProgramTTPage() {
+  const tt = await getSessionData('timetable');
+  populateSelectFromData('select-program-view', [...new Set(tt.map(r=>r.program).filter(Boolean))]);
+  populateSelectFromData('select-sem-view', [...new Set(tt.map(r=>r.semester).filter(Boolean))]);
+  populateSelectFromData('select-group-view', [...new Set(tt.map(r=>r.group).filter(Boolean))]);
+  filterProgramTT();
+}
+
+async function filterProgramTT() {
+  const tt = await getSessionData('timetable');
+  const prog = document.getElementById('select-program-view').value;
+  const sem = document.getElementById('select-sem-view').value;
+  const grp = document.getElementById('select-group-view').value;
+  const filtered = tt.filter(r =>
+    (!prog || r.program === prog) && (!sem || String(r.semester) === String(sem)) && (!grp || r.group === grp)
+  );
+  const tbody = document.getElementById('program-tt-tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-muted)">Tiada rekod.</td></tr>'; return; }
+  tbody.innerHTML = filtered.map(r => `
+    <tr><td>${r.day||'–'}</td><td>${r.timeStart||'–'}–${r.timeEnd||'–'}</td>
+    <td><span class="badge badge-blue">${r.courseCode||'–'}</span></td><td>${r.courseName||'–'}</td>
+    <td>${r.program||'–'}</td><td>${r.semester||'–'}</td><td>${r.group||'–'}</td><td>${r.lecturer||'–'}</td><td>${r.room||'–'}</td></tr>`).join('');
+}
+
+// ================================================================
+// FAILED STUDENTS
+// ================================================================
+async function renderFailedPage() {
+  const ff = await getSessionData('failed');
+  updateFailedStats(ff);
+  populateSelectFromData('ff-program', [...new Set(ff.map(r=>r.program).filter(Boolean))]);
+  populateSelectFromData('ff-semester', [...new Set(ff.map(r=>r.semester).filter(Boolean))]);
+  populateSelectFromData('ff-course', [...new Set(ff.map(r=>r.courseCode).filter(Boolean))]);
+  renderFailedTable(ff);
+  renderFailedCharts(ff);
+}
+
+function updateFailedStats(ff) {
+  set('f-total', ff.length);
+  set('f-courses', [...new Set(ff.map(r=>r.courseCode).filter(Boolean))].length);
+  set('f-programs', [...new Set(ff.map(r=>r.program).filter(Boolean))].length);
+  set('f-retake', ff.filter(r=>r.newClass && r.newClass !== r.origClass).length);
+}
+
+async function filterFailed() {
+  const ff = await getSessionData('failed');
+  const search = (document.getElementById('ff-search').value||'').toLowerCase();
+  const prog = document.getElementById('ff-program').value;
+  const sem = document.getElementById('ff-semester').value;
+  const course = document.getElementById('ff-course').value;
+  const filtered = ff.filter(r =>
+    (!search || (r.name||'').toLowerCase().includes(search) || (r.regNo||'').toLowerCase().includes(search)) &&
+    (!prog || r.program === prog) && (!sem || String(r.semester) === String(sem)) && (!course || r.courseCode === course)
+  );
+  renderFailedTable(filtered);
+}
+
+function renderFailedTable(records) {
+  const tbody = document.getElementById('failed-tbody');
+  if (!records.length) { tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text-muted)">Tiada rekod pelajar gagal.</td></tr>'; return; }
+  tbody.innerHTML = records.map(r => `
+    <tr><td>${r.regNo||'–'}</td><td>${r.name||'–'}</td><td>${r.program||'–'}</td><td>${r.semester||'–'}</td>
+    <td><span class="badge badge-orange">${r.courseCode||'–'}</span></td><td>${r.courseName||'–'}</td>
+    <td>${r.origClass||'–'}</td><td>${r.newClass||'–'}</td><td>${r.lecturer||'–'}</td>
+    <td><span class="badge badge-${r.status==='Ulang Kursus'?'orange':'blue'}">${r.status||'–'}</span></td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteRecord('failed',${r.id},renderFailedPage)">🗑</button></td>
+    </tr>`).join('');
+}
+
+function renderFailedCharts(ff) {
+  const byCourse = {};
+  ff.forEach(r => { if(r.courseCode) byCourse[r.courseCode]=(byCourse[r.courseCode]||0)+1; });
+  const courses = Object.keys(byCourse).slice(0,10);
+  renderBarChart('chart-failed-course', courses, courses.map(c=>byCourse[c]), 'Bilangan Pelajar', '#d93025');
+
+  const byProg = {};
+  ff.forEach(r => { if(r.program) byProg[r.program]=(byProg[r.program]||0)+1; });
+  const progs = Object.keys(byProg);
+  renderPieChart('chart-failed-prog', progs, progs.map(p=>byProg[p]));
+}
+
+function openAddFailedModal() { document.getElementById('modal-failed').classList.add('open'); }
+
+async function saveFailedRecord() {
+  const rec = {
+    session: activeSession,
+    regNo: v('mf-regno'), name: v('mf-name'), program: v('mf-program'), semester: v('mf-sem'),
+    courseCode: v('mf-code'), courseName: v('mf-cname'), origClass: v('mf-origclass'),
+    newClass: v('mf-newclass'), lecturer: v('mf-lecturer'), status: v('mf-status')
+  };
+  if (!rec.regNo || !rec.name || !rec.courseCode) { showToast('Sila isi medan wajib (*)','error'); return; }
+  await dbAdd('failed', rec);
+  closeModal('modal-failed');
+  showToast('Rekod pelajar gagal disimpan.','success');
+  renderFailedPage();
+  refreshDashboard();
+}
+
+// ================================================================
+// CROSS-CLASS STUDENTS
+// ================================================================
+async function renderCrossPage() {
+  const cc = await getSessionData('crossclass');
+  set('c-total', cc.length);
+  set('c-classes', [...new Set(cc.map(r=>r.newClass).filter(Boolean))].length);
+  set('c-courses', [...new Set(cc.map(r=>r.courseCode).filter(Boolean))].length);
+  set('c-programs', [...new Set(cc.map(r=>r.program).filter(Boolean))].length);
+  populateSelectFromData('cf-program', [...new Set(cc.map(r=>r.program).filter(Boolean))]);
+  populateSelectFromData('cf-class', [...new Set(cc.map(r=>r.newClass).filter(Boolean))]);
+  renderCrossTable(cc);
+  renderCrossCharts(cc);
+}
+
+async function filterCross() {
+  const cc = await getSessionData('crossclass');
+  const search = (document.getElementById('cf-search').value||'').toLowerCase();
+  const prog = document.getElementById('cf-program').value;
+  const cls = document.getElementById('cf-class').value;
+  const filtered = cc.filter(r =>
+    (!search || (r.name||'').toLowerCase().includes(search) || (r.regNo||'').toLowerCase().includes(search)) &&
+    (!prog || r.program === prog) && (!cls || r.newClass === cls)
+  );
+  renderCrossTable(filtered);
+}
+
+function renderCrossTable(records) {
+  const tbody = document.getElementById('cross-tbody');
+  if (!records.length) { tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text-muted)">Tiada rekod pelajar tumpang kelas.</td></tr>'; return; }
+  tbody.innerHTML = records.map(r => `
+    <tr><td>${r.regNo||'–'}</td><td>${r.name||'–'}</td><td>${r.program||'–'}</td><td>${r.origSem||'–'}</td>
+    <td>${r.origClass||'–'}</td><td><span class="badge badge-purple">${r.newClass||'–'}</span></td>
+    <td><span class="badge badge-blue">${r.courseCode||'–'}</span></td><td>${r.courseName||'–'}</td>
+    <td>${r.lecturer||'–'}</td><td>${r.time||'–'}</td><td>${r.room||'–'}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteRecord('crossclass',${r.id},renderCrossPage)">🗑</button></td>
+    </tr>`).join('');
+}
+
+function renderCrossCharts(cc) {
+  const byClass = {};
+  cc.forEach(r => { if(r.newClass) byClass[r.newClass]=(byClass[r.newClass]||0)+1; });
+  const classes = Object.keys(byClass).slice(0,10);
+  renderBarChart('chart-cross-class', classes, classes.map(c=>byClass[c]), 'Bilangan Pelajar', '#7c5cd8');
+
+  const byProg = {};
+  cc.forEach(r => { if(r.program) byProg[r.program]=(byProg[r.program]||0)+1; });
+  const progs = Object.keys(byProg);
+  renderPieChart('chart-cross-prog', progs, progs.map(p=>byProg[p]));
+}
+
+function openAddCrossModal() { document.getElementById('modal-cross').classList.add('open'); }
+
+async function saveCrossRecord() {
+  const rec = {
+    session: activeSession,
+    regNo: v('mc-regno'), name: v('mc-name'), program: v('mc-program'), origSem: v('mc-sem'),
+    origClass: v('mc-origclass'), newClass: v('mc-newclass'), courseCode: v('mc-code'),
+    courseName: v('mc-cname'), lecturer: v('mc-lecturer'), time: v('mc-time'), room: v('mc-room')
+  };
+  if (!rec.regNo || !rec.name || !rec.courseCode) { showToast('Sila isi medan wajib (*)','error'); return; }
+  await dbAdd('crossclass', rec);
+  closeModal('modal-cross');
+  showToast('Rekod pelajar tumpang kelas disimpan.','success');
+  renderCrossPage();
+  refreshDashboard();
+}
+
+// ================================================================
+// CLASSROOM / LAB PAGES
+// ================================================================
+async function renderClassroomPage() {
+  const tt = await getSessionData('timetable');
+  const cls = tt.filter(r => !r.roomType || r.roomType.toLowerCase().includes('kuliah') || r.roomType === '');
+  populateSelectFromData('filter-cls-room', [...new Set(cls.map(r=>r.room).filter(Boolean))]);
+  renderClassroomCharts(cls);
+  renderClassroomTable();
+}
+
+function renderClassroomCharts(cls) {
+  const roomH = {};
+  cls.forEach(r => { if(!r.room) return; const h=(timeToMinutes(r.timeEnd)-timeToMinutes(r.timeStart))/60; roomH[r.room]=(roomH[r.room]||0)+(h>0?h:0); });
+  const rooms = Object.keys(roomH).slice(0,10);
+  renderBarChart('chart-cls-usage', rooms, rooms.map(r=>Math.round(roomH[r]*10)/10), 'Jam Digunakan', '#1e6de5');
+
+  const dayH = {};
+  DAYS_ORDER.forEach(d => dayH[d] = 0);
+  cls.forEach(r => { if(r.day && dayH[r.day]!==undefined) { const h=(timeToMinutes(r.timeEnd)-timeToMinutes(r.timeStart))/60; dayH[r.day]+=(h>0?h:0); } });
+  renderBarChart('chart-cls-day', DAYS_ORDER, DAYS_ORDER.map(d=>Math.round(dayH[d]*10)/10), 'Jam Digunakan', '#17a35a');
+}
+
+async function renderClassroomTable() {
+  const tt = await getSessionData('timetable');
+  const room = document.getElementById('filter-cls-room').value;
+  const day = document.getElementById('filter-cls-day').value;
+  const filtered = tt.filter(r => (!room || r.room === room) && (!day || r.day === day));
+  const tbody = document.getElementById('cls-tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-muted)">Tiada rekod.</td></tr>'; return; }
+  tbody.innerHTML = filtered.map(r => `
+    <tr><td>${r.room||'–'}</td><td>${r.day||'–'}</td><td>${r.timeStart||'–'}–${r.timeEnd||'–'}</td>
+    <td><span class="badge badge-blue">${r.courseCode||'–'}</span></td><td>${r.group||'–'}</td><td>${r.lecturer||'–'}</td>
+    <td>${r.students||'–'}</td><td><span class="badge badge-green">Digunakan</span></td></tr>`).join('');
+}
+
+async function renderLabPage() {
+  const tt = await getSessionData('timetable');
+  const labs = tt.filter(r => r.roomType && r.roomType.toLowerCase().includes('makmal'));
+  populateSelectFromData('filter-lab-room', [...new Set(labs.map(r=>r.room).filter(Boolean))]);
+  renderLabCharts(labs);
+  renderLabTable();
+}
+
+function renderLabCharts(labs) {
+  const roomH = {};
+  labs.forEach(r => { if(!r.room) return; const h=(timeToMinutes(r.timeEnd)-timeToMinutes(r.timeStart))/60; roomH[r.room]=(roomH[r.room]||0)+(h>0?h:0); });
+  const rooms = Object.keys(roomH).slice(0,10);
+  renderBarChart('chart-lab-usage', rooms, rooms.map(r=>Math.round(roomH[r]*10)/10), 'Jam Digunakan', '#e97620');
+
+  const dayH = {};
+  DAYS_ORDER.forEach(d => dayH[d] = 0);
+  labs.forEach(r => { if(r.day && dayH[r.day]!==undefined) { const h=(timeToMinutes(r.timeEnd)-timeToMinutes(r.timeStart))/60; dayH[r.day]+=(h>0?h:0); } });
+  renderBarChart('chart-lab-day', DAYS_ORDER, DAYS_ORDER.map(d=>Math.round(dayH[d]*10)/10), 'Jam Digunakan', '#d93025');
+}
+
+async function renderLabTable() {
+  const tt = await getSessionData('timetable');
+  const room = document.getElementById('filter-lab-room').value;
+  const day = document.getElementById('filter-lab-day').value;
+  const labs = tt.filter(r => r.roomType && r.roomType.toLowerCase().includes('makmal'));
+  const filtered = labs.filter(r => (!room || r.room === room) && (!day || r.day === day));
+  const tbody = document.getElementById('lab-tbody');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-muted)">Tiada rekod makmal.</td></tr>'; return; }
+  tbody.innerHTML = filtered.map(r => `
+    <tr><td>${r.room||'–'}</td><td>${r.day||'–'}</td><td>${r.timeStart||'–'}–${r.timeEnd||'–'}</td>
+    <td><span class="badge badge-blue">${r.courseCode||'–'}</span></td><td>${r.group||'–'}</td><td>${r.lecturer||'–'}</td>
+    <td>${r.students||'–'}</td><td><span class="badge badge-orange">Makmal</span></td></tr>`).join('');
+}
+
+// ================================================================
+// WORKLOAD ANALYSIS
+// ================================================================
+async function renderWorkloadPage() {
+  const tt = await getSessionData('timetable');
+  const lecturers = [...new Set(tt.map(r=>r.lecturer).filter(Boolean))].sort();
+  const data = lecturers.map(l => {
+    const records = tt.filter(r => r.lecturer === l);
+    const courses = [...new Set(records.map(r=>r.courseCode).filter(Boolean))].length;
+    const hours = computeTotalHours(records);
+    const dayHours = {};
+    DAYS_ORDER.forEach(d => {
+      const recs = records.filter(r => r.day === d);
+      dayHours[d] = computeTotalHours(recs);
+    });
+    return { name: l, courses, classes: records.length, hours, dayHours };
+  });
+
+  // Chart
+  renderBarChart('chart-workload-bar', data.map(d=>d.name), data.map(d=>d.hours), 'Jam/Minggu', '#1e6de5');
+
+  // Table
+  const tbody = document.getElementById('workload-tbody');
+  if (!data.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-muted)">Tiada data pensyarah.</td></tr>'; return; }
+  const maxHours = Math.max(...data.map(d=>d.hours), 1);
+  tbody.innerHTML = data.map(d => {
+    const pct = (d.hours / maxHours) * 100;
+    const level = d.hours > 20 ? 'Tinggi' : d.hours > 12 ? 'Sederhana' : 'Rendah';
+    const badgeClass = d.hours > 20 ? 'badge-red' : d.hours > 12 ? 'badge-orange' : 'badge-green';
+    return `<tr>
+      <td><strong>${d.name}</strong></td><td>${d.courses}</td><td>${d.classes}</td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar-wrap" style="width:80px;flex:1"><div class="progress-bar-fill ${d.hours>20?'red':d.hours>12?'orange':''}" style="width:${pct}%"></div></div><strong>${d.hours}j</strong></div></td>
+      ${DAYS_ORDER.map(day => `<td>${d.dayHours[day]||0}j</td>`).join('')}
+      <td><span class="badge ${badgeClass}">${level}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ================================================================
+// CONFLICT DETECTION
+// ================================================================
+async function runConflictDetection() {
+  const tt = await getSessionData('timetable');
+  const ff = await getSessionData('failed');
+  const cc = await getSessionData('crossclass');
+
+  const lecturerConflicts = [];
+  const roomConflicts = [];
+
+  const lecMap = {};
+  const roomMap = {};
+
+  tt.forEach(r => {
+    if (r.lecturer) {
+      const key = `${r.lecturer}|${r.day}|${r.timeStart}`;
+      if (!lecMap[key]) lecMap[key] = [];
+      lecMap[key].push(r);
+    }
+    if (r.room) {
+      const key = `${r.room}|${r.day}|${r.timeStart}`;
+      if (!roomMap[key]) roomMap[key] = [];
+      roomMap[key].push(r);
+    }
+  });
+
+  Object.entries(lecMap).forEach(([key, records]) => {
+    if (records.length > 1) {
+      const [lec, day, time] = key.split('|');
+      lecturerConflicts.push({ lec, day, time, records, confirmed: true });
+    }
+  });
+
+  Object.entries(roomMap).forEach(([key, records]) => {
+    if (records.length > 1) {
+      const [room, day, time] = key.split('|');
+      roomConflicts.push({ room, day, time, records, confirmed: true });
+    }
+  });
+
+  set('conf-confirmed', lecturerConflicts.length + roomConflicts.length);
+  set('conf-possible', 0);
+  set('conf-none', (lecturerConflicts.length + roomConflicts.length) === 0 ? '✓ Tiada' : '–');
+
+  document.getElementById('badge-conflict').textContent = lecturerConflicts.length + roomConflicts.length;
+
+  // Render
+  const lecList = document.getElementById('conflict-lecturer-list');
+  if (!lecturerConflicts.length) {
+    lecList.innerHTML = `<div class="conflict-item conflict-none"><div class="c-icon">✅</div><div class="c-body"><div class="c-title">Tiada Pertindihan Pensyarah Dikesan</div><div class="c-detail">Semua slot jadual pensyarah adalah unik.</div></div></div>`;
+  } else {
+    lecList.innerHTML = lecturerConflicts.map(c => `
+      <div class="conflict-item conflict-confirmed">
+        <div class="c-icon">🔴</div>
+        <div class="c-body">
+          <div class="c-title">Pertindihan Pensyarah: ${c.lec}</div>
+          <div class="c-detail">${c.day} ${c.time} – ${c.records.map(r=>`${r.courseCode} (${r.group})`).join(', ')}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  const roomList = document.getElementById('conflict-room-list');
+  if (!roomConflicts.length) {
+    roomList.innerHTML = `<div class="conflict-item conflict-none"><div class="c-icon">✅</div><div class="c-body"><div class="c-title">Tiada Pertindihan Bilik Dikesan</div></div></div>`;
+  } else {
+    roomList.innerHTML = roomConflicts.map(c => `
+      <div class="conflict-item conflict-confirmed">
+        <div class="c-icon">🔴</div>
+        <div class="c-body">
+          <div class="c-title">Pertindihan Bilik: ${c.room}</div>
+          <div class="c-detail">${c.day} ${c.time} – ${c.records.map(r=>`${r.courseCode} ${r.group}`).join(', ')}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  document.getElementById('conflict-student-list').innerHTML = `<div class="conflict-item" style="background:#f0f6ff;border-left:4px solid var(--accent-blue)"><div class="c-icon">ℹ️</div><div class="c-body"><div class="c-title">Semakan Pelajar</div><div class="c-detail">Jumlah rekod pelajar gagal: ${ff.length} | Pelajar tumpang kelas: ${cc.length}</div></div></div>`;
+}
+
+// ================================================================
+// SESSION COMPARISON
+// ================================================================
+function renderComparisonSelector() {
+  const container = document.getElementById('compare-session-selector');
+  container.innerHTML = SESSIONS.map(s => `
+    <label class="session-check">
+      <input type="checkbox" value="${s.id}" id="compare-${s.id}"> ${s.name}
+    </label>`).join('');
+}
+
+async function runComparison() {
+  const selected = SESSIONS.filter(s => document.getElementById(`compare-${s.id}`)?.checked);
+  if (selected.length < 2) { showToast('Pilih sekurang-kurangnya 2 sesi untuk dibandingkan.','warning'); return; }
+
+  const output = document.getElementById('comparison-output');
+  const stats = [];
+
+  for (const s of selected) {
+    const prevSession = activeSession;
+    const tt = (await dbGetAll('timetable')).filter(r => r.session === s.id);
+    const ff = (await dbGetAll('failed')).filter(r => r.session === s.id);
+    const cc = (await dbGetAll('crossclass')).filter(r => r.session === s.id);
+    const hasData = tt.length > 0 || ff.length > 0 || cc.length > 0;
+    stats.push({
+      name: s.name, id: s.id, hasData,
+      lecturers: [...new Set(tt.map(r=>r.lecturer).filter(Boolean))].length,
+      courses: [...new Set(tt.map(r=>r.courseCode).filter(Boolean))].length,
+      classes: [...new Set(tt.map(r=>r.group).filter(Boolean))].length,
+      students: tt.reduce((s,r)=>s+(parseInt(r.students)||0),0),
+      hours: computeTotalHours(tt),
+      rooms: [...new Set(tt.map(r=>r.room).filter(Boolean))].length,
+      failed: ff.length,
+      cross: cc.length,
+    });
+  }
+
+  const metrics = [
+    { key:'lecturers', label:'Jumlah Pensyarah' },
+    { key:'courses', label:'Jumlah Kursus' },
+    { key:'classes', label:'Jumlah Kelas' },
+    { key:'students', label:'Jumlah Pelajar' },
+    { key:'hours', label:'Jam Pengajaran' },
+    { key:'rooms', label:'Bilik & Makmal' },
+    { key:'failed', label:'Pelajar Gagal' },
+    { key:'cross', label:'Pelajar Tumpang' },
+  ];
+
+  let html = '<div class="card" style="margin-bottom:16px"><div class="chart-card"><h3>Perbandingan Metrik Utama</h3><div style="position:relative;height:300px"><canvas id="chart-compare-main"></canvas></div></div></div>';
+  html += '<div class="table-wrap"><table><thead><tr><th>Metrik</th>' + stats.map(s=>`<th>${s.name}${!s.hasData?'<br><span style="color:var(--accent-orange);font-size:10px">Data Tidak Lengkap</span>':''}</th>`).join('') + '</tr></thead><tbody>';
+
+  metrics.forEach(m => {
+    html += `<tr><td><strong>${m.label}</strong></td>`;
+    stats.forEach((s,i) => {
+      const val = s[m.key];
+      const prev = i > 0 ? stats[i-1][m.key] : null;
+      let change = '';
+      if (prev !== null && s.hasData && stats[i-1].hasData) {
+        const diff = val - prev;
+        change = diff > 0 ? `<span style="color:var(--accent-green)"> ▲${diff}</span>` : diff < 0 ? `<span style="color:var(--accent-red)"> ▼${Math.abs(diff)}</span>` : `<span style="color:var(--text-muted)"> –</span>`;
+      }
+      html += `<td>${s.hasData ? val + change : '<span class="badge badge-gray">Tiada Data</span>'}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  output.innerHTML = html;
+
+  // Render comparison chart
+  setTimeout(() => {
+    if (charts['chart-compare-main']) charts['chart-compare-main'].destroy();
+    const ctx = document.getElementById('chart-compare-main');
+    if (!ctx) return;
+    const COLORS = ['#1e6de5','#17a35a','#e97620','#d93025'];
+    charts['chart-compare-main'] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: metrics.map(m => m.label),
+        datasets: stats.map((s, i) => ({
+          label: s.name,
+          data: metrics.map(m => s[m.key]),
+          backgroundColor: COLORS[i % COLORS.length] + 'cc',
+          borderColor: COLORS[i % COLORS.length],
+          borderWidth: 1, borderRadius: 4
+        }))
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true }, x: { ticks: { font: { size: 10 }, maxRotation: 30 } } }
+      }
+    });
+  }, 100);
+}
+
+// ================================================================
+// FILE UPLOAD
+// ================================================================
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+
+function handleFileSelect(input) {
+  const file = input.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (data.length < 2) { showToast('Fail tidak mempunyai data yang mencukupi.','error'); return; }
+      pendingImport = data;
+      pendingImportType = document.getElementById('upload-type').value;
+      pendingImportSession = document.getElementById('upload-session').value;
+      showPreview(data);
+    } catch(err) { showToast('Ralat membaca fail: ' + err.message,'error'); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function showPreview(data) {
+  const headers = data[0];
+  const rows = data.slice(1, 11);
+  document.getElementById('upload-info').innerHTML = `✅ <strong>Fail dimuat:</strong> ${data.length - 1} baris data ditemui. Semak pratonton di bawah sebelum mengesahkan import.`;
+  const thead = document.getElementById('preview-thead');
+  const tbody = document.getElementById('preview-tbody');
+  thead.innerHTML = `<tr>${headers.map(h => `<th>${h||''}</th>`).join('')}</tr>`;
+  tbody.innerHTML = rows.map(r => `<tr>${headers.map((_,i) => `<td>${r[i]||''}</td>`).join('')}</tr>`).join('');
+  document.getElementById('upload-preview').style.display = 'block';
+}
+
+async function confirmImport() {
+  if (!pendingImport) return;
+  const data = pendingImport;
+  const type = pendingImportType;
+  const session = pendingImportSession;
+  const headers = data[0].map(h => String(h||'').trim().toLowerCase());
+  const rows = data.slice(1).filter(r => r.some(c => c));
+
+  let saved = 0, skipped = 0;
+
+  for (const row of rows) {
+    const get = (variants) => {
+      for (const v of variants) {
+        const idx = headers.findIndex(h => h.includes(v));
+        if (idx >= 0 && row[idx] !== undefined && row[idx] !== '') return String(row[idx]).trim();
+      }
+      return '';
+    };
+
+    if (type === 'timetable') {
+      const rec = {
+        session,
+        day: get(['hari','day']),
+        timeStart: get(['masa mula','time start','mula','start']),
+        timeEnd: get(['masa tamat','time end','tamat','end']),
+        courseCode: get(['kod kursus','course code','kod','code']),
+        courseName: get(['nama kursus','course name','nama','kursus']),
+        program: get(['program']),
+        semester: get(['semester','sem']),
+        group: get(['kumpulan','group','kelas']),
+        lecturer: get(['pensyarah','lecturer','pengajar']),
+        room: get(['bilik','room','dewan','makmal']),
+        roomType: get(['jenis bilik','room type','jenis']),
+        students: get(['pelajar','students','bil']),
+        importedAt: new Date().toISOString(),
+      };
+      if (!rec.day && !rec.courseCode) { skipped++; continue; }
+      await dbAdd('timetable', rec);
+    } else if (type === 'failed') {
+      const rec = {
+        session,
+        regNo: get(['no pendaftaran','reg no','no.','nombor']),
+        name: get(['nama pelajar','nama','name']),
+        program: get(['program']),
+        semester: get(['semester','sem']),
+        courseCode: get(['kod kursus','course code','kod']),
+        courseName: get(['nama kursus','kursus']),
+        origClass: get(['kelas asal','asal','original']),
+        newClass: get(['kelas baharu','baharu','new']),
+        lecturer: get(['pensyarah','lecturer']),
+        status: get(['status']) || 'Ulang Kursus',
+        importedAt: new Date().toISOString(),
+      };
+      if (!rec.regNo && !rec.name) { skipped++; continue; }
+      await dbAdd('failed', rec);
+    } else if (type === 'cross') {
+      const rec = {
+        session,
+        regNo: get(['no pendaftaran','reg no','no.','nombor']),
+        name: get(['nama pelajar','nama','name']),
+        program: get(['program asal','program']),
+        origSem: get(['semester asal','sem asal','semester']),
+        origClass: get(['kelas asal','asal']),
+        newClass: get(['kelas ditumpangi','ditumpangi','tumpang']),
+        courseCode: get(['kod kursus','kod']),
+        courseName: get(['nama kursus','kursus']),
+        lecturer: get(['pensyarah','lecturer']),
+        time: get(['hari dan masa','hari','masa']),
+        room: get(['bilik','room']),
+        importedAt: new Date().toISOString(),
+      };
+      if (!rec.regNo && !rec.name) { skipped++; continue; }
+      await dbAdd('crossclass', rec);
+    }
+    saved++;
+  }
+
+  cancelImport();
+  showToast(`✅ ${saved} rekod disimpan. ${skipped} dilewati.`, 'success');
+  await refreshDashboard();
+  await dbPut('meta', { key: `lastUpload_${session}_${type}`, value: new Date().toISOString() });
+
+  if (type === 'timetable') switchSession(session);
+}
+
+function cancelImport() {
+  pendingImport = null;
+  document.getElementById('upload-preview').style.display = 'none';
+  document.getElementById('file-input').value = '';
+}
+
+// ================================================================
+// SESSION MANAGEMENT PAGE
+// ================================================================
+async function renderManageSessionPage() {
+  const tbody = document.getElementById('manage-session-tbody');
+  let html = '';
+  for (const s of SESSIONS) {
+    const tt = (await dbGetAll('timetable')).filter(r => r.session === s.id);
+    const ff = (await dbGetAll('failed')).filter(r => r.session === s.id);
+    const cc = (await dbGetAll('crossclass')).filter(r => r.session === s.id);
+    const hasData = tt.length + ff.length + cc.length > 0;
+    const lastMeta = await new Promise(res => {
+      const tx = db.transaction('meta','readonly');
+      const req = tx.objectStore('meta').get(`lastUpload_${s.id}_timetable`);
+      req.onsuccess = () => res(req.result?.value || '–');
+      req.onerror = () => res('–');
+    });
+    html += `<tr>
+      <td><strong>${s.name}</strong>${s.current?'<span class="badge badge-green" style="margin-left:6px">Semasa</span>':''}</td>
+      <td>${tt.length}</td><td>${ff.length}</td><td>${cc.length}</td>
+      <td>${hasData ? '<span class="badge badge-green">Ada Data</span>' : '<span class="badge badge-gray">Tiada Data</span>'}</td>
+      <td style="font-size:11px">${lastMeta !== '–' ? new Date(lastMeta).toLocaleString('ms-MY') : '–'}</td>
+      <td>
+        <button class="btn btn-primary btn-sm" onclick="switchSession('${s.id}')">Pilih</button>
+        ${currentRole === 'admin' && hasData ? `<button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="clearSessionData('${s.id}')">🗑 Padam</button>` : ''}
+      </td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+async function clearSessionData(sessionId) {
+  if (!confirm(`Adakah anda pasti ingin memadamkan SEMUA data untuk ${getSessionName(sessionId)}? Tindakan ini tidak boleh dibatalkan.`)) return;
+  const stores = ['timetable','failed','crossclass'];
+  for (const store of stores) {
+    const all = await dbGetAll(store);
+    for (const r of all.filter(r => r.session === sessionId)) {
+      await dbDelete(store, r.id);
+    }
+  }
+  showToast(`Data sesi ${getSessionName(sessionId)} telah dipadam.`, 'success');
+  renderManageSessionPage();
+  refreshDashboard();
+}
+
+// ================================================================
+// DATA VALIDATION
+// ================================================================
+async function runValidation() {
+  const tt = await getSessionData('timetable');
+  const output = document.getElementById('validation-output');
+  const issues = [];
+
+  if (tt.length === 0) {
+    output.innerHTML = '<div class="alert alert-warn">⚠️ Tiada data jadual waktu untuk sesi aktif. Muat naik fail terlebih dahulu.</div>';
+    return;
+  }
+
+  tt.forEach((r, i) => {
+    if (!r.day) issues.push({ type: 'warn', msg: `Baris ${i+1}: Medan "Hari" kosong (${r.courseCode||'?'})` });
+    if (!r.timeStart) issues.push({ type: 'warn', msg: `Baris ${i+1}: Masa Mula tidak dinyatakan (${r.courseCode||'?'})` });
+    if (!r.timeEnd) issues.push({ type: 'warn', msg: `Baris ${i+1}: Masa Tamat tidak dinyatakan (${r.courseCode||'?'})` });
+    if (!r.lecturer) issues.push({ type: 'info', msg: `Baris ${i+1}: Nama Pensyarah tiada (${r.courseCode||'?'})` });
+    if (!r.room) issues.push({ type: 'info', msg: `Baris ${i+1}: Bilik tidak dinyatakan (${r.courseCode||'?'})` });
+    if (r.timeStart && r.timeEnd && timeToMinutes(r.timeEnd) <= timeToMinutes(r.timeStart)) {
+      issues.push({ type: 'error', msg: `Baris ${i+1}: Masa Tamat lebih awal daripada Masa Mula (${r.courseCode||'?'}) ${r.timeStart}–${r.timeEnd}` });
+    }
+  });
+
+  const conflicts = detectConflictsQuick(tt);
+  if (conflicts > 0) issues.push({ type: 'error', msg: `${conflicts} pertindihan jadual dikesan. Semak modul Pengesanan Pertindihan.` });
+
+  if (!issues.length) {
+    output.innerHTML = '<div class="alert alert-success">✅ Semua rekod lulus semakan asas. Tiada isu dikesan.</div>';
+  } else {
+    const errors = issues.filter(i=>i.type==='error');
+    const warns = issues.filter(i=>i.type==='warn');
+    const infos = issues.filter(i=>i.type==='info');
+    output.innerHTML = `
+      <div class="alert alert-${errors.length?'danger':warns.length?'warn':'info'}">
+        Jumlah isu: <strong>${issues.length}</strong> – Ralat: ${errors.length} | Amaran: ${warns.length} | Maklumat: ${infos.length}
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Penerangan</th></tr></thead>
+        <tbody>${issues.slice(0,100).map(i => `<tr><td><span class="badge ${i.type==='error'?'badge-red':i.type==='warn'?'badge-orange':'badge-blue'}">${i.type==='error'?'Ralat':i.type==='warn'?'Amaran':'Maklumat'}</span></td><td>${i.msg}</td></tr>`).join('')}</tbody>
+      </table></div>`;
+  }
+}
+
+// ================================================================
+// REPORTS
+// ================================================================
+async function generateReport(type) {
+  const tt = await getSessionData('timetable');
+  const ff = await getSessionData('failed');
+  const cc = await getSessionData('crossclass');
+  const sessionName = getSessionName(activeSession);
+
+  let headers = [], rows = [], filename = '';
+  if (type === 'overall') {
+    headers = ['Hari','Masa Mula','Masa Tamat','Kod Kursus','Nama Kursus','Program','Semester','Kumpulan','Pensyarah','Bilik','Jml Pelajar'];
+    rows = tt.map(r => [r.day,r.timeStart,r.timeEnd,r.courseCode,r.courseName,r.program,r.semester,r.group,r.lecturer,r.room,r.students]);
+    filename = `Jadual_Waktu_${activeSession}`;
+  } else if (type === 'workload') {
+    const lecturerHours = {};
+    tt.forEach(r => { if(!r.lecturer) return; const h=(timeToMinutes(r.timeEnd)-timeToMinutes(r.timeStart))/60; lecturerHours[r.lecturer]=(lecturerHours[r.lecturer]||0)+(h>0?h:0); });
+    headers = ['Pensyarah','Bilangan Kursus','Bilangan Kelas','Jam/Minggu'];
+    rows = Object.entries(lecturerHours).map(([lec,h]) => { const recs=tt.filter(r=>r.lecturer===lec); return [lec,[...new Set(recs.map(r=>r.courseCode).filter(Boolean))].length,recs.length,Math.round(h*10)/10]; });
+    filename = `Beban_Tugas_${activeSession}`;
+  } else if (type === 'failed') {
+    headers = ['No Pendaftaran','Nama','Program','Sem','Kod Kursus','Nama Kursus','Kelas Asal','Kelas Baharu','Pensyarah','Status'];
+    rows = ff.map(r => [r.regNo,r.name,r.program,r.semester,r.courseCode,r.courseName,r.origClass,r.newClass,r.lecturer,r.status]);
+    filename = `Pelajar_Gagal_${activeSession}`;
+  } else if (type === 'cross') {
+    headers = ['No Pendaftaran','Nama','Program Asal','Sem Asal','Kelas Asal','Kelas Tumpang','Kod Kursus','Nama Kursus','Pensyarah','Hari&Masa','Bilik'];
+    rows = cc.map(r => [r.regNo,r.name,r.program,r.origSem,r.origClass,r.newClass,r.courseCode,r.courseName,r.lecturer,r.time,r.room]);
+    filename = `Pelajar_Tumpang_${activeSession}`;
+  } else if (type === 'rooms') {
+    const roomH = {};
+    tt.forEach(r => { if(!r.room) return; const h=(timeToMinutes(r.timeEnd)-timeToMinutes(r.timeStart))/60; roomH[r.room]=(roomH[r.room]||0)+(h>0?h:0); });
+    headers = ['Bilik/Makmal','Jam Digunakan','Jenis'];
+    rows = Object.entries(roomH).map(([room,h]) => [room, Math.round(h*10)/10, tt.find(r=>r.room===room)?.roomType||'Kuliah']);
+    filename = `Penggunaan_Bilik_${activeSession}`;
+  } else if (type === 'conflict') {
+    const conflicts = [];
+    const lecMap = {};
+    tt.forEach(r => { if(r.lecturer){const k=`${r.lecturer}|${r.day}|${r.timeStart}`;if(!lecMap[k])lecMap[k]=[];lecMap[k].push(r);} });
+    Object.entries(lecMap).forEach(([k,recs]) => { if(recs.length>1) conflicts.push(['Pensyarah',recs[0].lecturer,recs[0].day,recs[0].timeStart,recs.map(r=>r.courseCode).join('/')]); });
+    headers = ['Jenis','Pihak Terlibat','Hari','Masa','Kursus Bertindih'];
+    rows = conflicts;
+    filename = `Pertindihan_${activeSession}`;
+  }
+
+  exportTableExcelData(headers, rows, filename, sessionName);
+}
+
+function exportTableExcelData(headers, rows, filename, sessionName) {
+  if (!rows.length) { showToast('Tiada data untuk dieksport.', 'warning'); return; }
+  const ws = XLSX.utils.aoa_to_sheet([
+    [`LAPORAN – ${sessionName}`],
+    [`Tarikh Jana: ${new Date().toLocaleString('ms-MY')}`],
+    [],
+    headers,
+    ...rows
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Laporan');
+  XLSX.writeFile(wb, `${filename}.xlsx`);
+  showToast(`📥 Fail ${filename}.xlsx berjaya dimuat turun.`, 'success');
+}
+
+function exportTableExcel(tbodyId, filename) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  const table = tbody.closest('table');
+  const ws = XLSX.utils.table_to_sheet(table);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data');
+  XLSX.writeFile(wb, `${filename}_${activeSession}.xlsx`);
+  showToast(`📥 ${filename}.xlsx berjaya dimuat turun.`, 'success');
+}
+
+function exportDashboardPDF() { showToast('Fungsi cetak PDF: Gunakan Ctrl+P / Cmd+P atau print dari browser.', 'info'); window.print(); }
+function printTable() { window.print(); }
+
+// ================================================================
+// UTILITY
+// ================================================================
+function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+function populateSelectFromData(selectId, options) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const current = sel.value;
+  const firstOption = sel.options[0];
+  sel.innerHTML = '';
+  if (firstOption) sel.appendChild(firstOption.cloneNode(true));
+  options.sort().forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o; opt.textContent = o;
+    sel.appendChild(opt);
+  });
+  if (current) sel.value = current;
+}
+
+async function deleteRecord(store, id, refreshFn) {
+  if (!confirm('Padam rekod ini?')) return;
+  await dbDelete(store, id);
+  showToast('Rekod dipadam.', 'success');
+  refreshFn();
+  refreshDashboard();
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+function switchTab(group, tabId) {
+  const containers = {
+    'tt': { tabs: '#tt-tabs .tab', contents: '[id^="tt-tab-"]' },
+    'conflict': { tabs: '.page.active .tabs .tab', contents: '[id^="conflict-tab-"]' },
+    'upload-guide': { tabs: '#page-upload .tabs .tab', contents: '[id^="upload-guide-tab-"]' },
+  };
+  document.querySelectorAll(`[id^="${group}-tab-"]`).forEach(el => el.classList.remove('active'));
+  const target = document.getElementById(`${group}-tab-${tabId}`);
+  if (target) target.classList.add('active');
+  document.querySelectorAll('.tabs .tab').forEach(t => {
+    if (t.getAttribute('onclick') && t.getAttribute('onclick').includes(`'${group}'`)) {
+      t.classList.toggle('active', t.getAttribute('onclick').includes(`'${tabId}'`));
+    }
+  });
+}
+
+// ================================================================
+// PAGE LOAD ROUTER
+// ================================================================
+async function loadPage(pageId) {
+  switch(pageId) {
+    case 'page-home': await refreshDashboard(); break;
+    case 'page-session': renderSessionGrid(); break;
+    case 'page-timetable': await renderTimetablePage(); break;
+    case 'page-lecturer-tt': await renderLecturerTTPage(); break;
+    case 'page-program-tt': await renderProgramTTPage(); break;
+    case 'page-failed': await renderFailedPage(); break;
+    case 'page-crossclass': await renderCrossPage(); break;
+    case 'page-classroom': await renderClassroomPage(); break;
+    case 'page-lab': await renderLabPage(); break;
+    case 'page-workload': await renderWorkloadPage(); break;
+    case 'page-conflict': await runConflictDetection(); break;
+    case 'page-compare': renderComparisonSelector(); break;
+    case 'page-manage-session': await renderManageSessionPage(); break;
+    case 'page-validate': break;
+  }
+}
+
+// ================================================================
+// INIT
+// ================================================================
+async function init() {
+  await initDB();
+  document.getElementById('session-select-top').value = activeSession;
+  document.getElementById('sidebar-session-label').textContent = getSessionName(activeSession);
+  await refreshDashboard();
+
+  // Set upload session default to active
+  const uploadSel = document.getElementById('upload-session');
+  if (uploadSel) uploadSel.value = activeSession;
+}
+
+init().catch(e => console.error('Init error:', e));
+</script>
+</body>
+</html>
